@@ -4,11 +4,11 @@ import type { RegisterType, RegisterResponse, LoginType, LoginResponse } from ".
 
 export const publicApiService = {
   login: (loginInfo: LoginType): Promise<ApiResponse<LoginResponse>> =>
-    apiService.publicApiClient.post("/api/auth/login", loginInfo),
+    apiService.publicApiClient.post("/auth/login", loginInfo),
 
   register: (registerInfo: RegisterType): Promise<ApiResponse<RegisterResponse>> =>
-    apiService.publicApiClient.post("/api/auth/register", registerInfo),
+    apiService.publicApiClient.post("/auth/register", registerInfo),
 
   getNewToken: (): Promise<ApiResponse<{ accessToken: string }>> =>
-    apiService.publicApiClient.post("/api/auth/refresh"),
+    apiService.publicApiClient.post("/auth/refresh"),
 };
