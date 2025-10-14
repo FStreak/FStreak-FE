@@ -104,7 +104,7 @@ export default function ClassroomRoomPage() {
                 className={`w-14 h-14 rounded-full shadow-lg ${
                   isVideoOn 
                     ? "bg-gradient-to-br from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white" 
-                    : "bg-gradient-to-br from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600 text-white"
+                    : "bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white"
                 }`}
               >
                 {isVideoOn ? <Video className="w-6 h-6" /> : <VideoOff className="w-6 h-6" />}
@@ -117,7 +117,7 @@ export default function ClassroomRoomPage() {
                 className={`w-14 h-14 rounded-full shadow-lg ${
                   isAudioOn 
                     ? "bg-gradient-to-br from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white" 
-                    : "bg-gradient-to-br from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600 text-white"
+                    : "bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white"
                 }`}
               >
                 {isAudioOn ? <Mic className="w-6 h-6" /> : <MicOff className="w-6 h-6" />}
