@@ -13,18 +13,18 @@ export default function ClassroomsPage() {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-orange-100">
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-orange-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
         <main className="container mx-auto px-4 py-12">
           <div className="max-w-6xl mx-auto">
             {/* Header */}
             <div className="text-center mb-12">
-              <h1 className="text-4xl md:text-5xl font-bold mb-4">
+              <h1 className="text-4xl md:text-5xl font-bold mb-4 dark:text-white">
                 Study{" "}
                 <span className="bg-gradient-to-r from-orange-600 to-yellow-500 bg-clip-text text-transparent">
                   Classrooms
                 </span>
               </h1>
-              <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
                 Join themed study rooms and collaborate with fellow FPT students.
                 Learn together, grow together.
               </p>
@@ -38,11 +38,11 @@ export default function ClassroomsPage() {
             </div>
 
             {/* CTA Section */}
-            <div className="mt-16 text-center p-12 rounded-2xl bg-white/50 backdrop-blur-sm border border-orange-200">
-              <h2 className="text-3xl font-bold mb-4 text-gray-800">
+            <div className="mt-16 text-center p-12 rounded-2xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-orange-200 dark:border-gray-700">
+              <h2 className="text-3xl font-bold mb-4 text-gray-800 dark:text-white">
                 Can't find what you're looking for?
               </h2>
-              <p className="text-gray-600 mb-6">
+              <p className="text-gray-600 dark:text-gray-300 mb-6">
                 Upgrade to Pro or Elite to create your own private study rooms!
               </p>
               <Link href="/membership">

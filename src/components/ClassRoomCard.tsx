@@ -18,21 +18,21 @@ export default function ClassRoomCard({ classroom }: ClassRoomCardProps) {
   };
 
   return (
-    <Card className="p-6 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white">
+    <Card className="p-6 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
       <div className="flex items-start justify-between mb-4">
         <div className="text-4xl">{classroom.icon}</div>
-        <div className="px-3 py-1 bg-orange-100 text-orange-600 text-xs font-medium rounded-full">
+        <div className="px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-xs font-medium rounded-full">
           {classroom.theme}
         </div>
       </div>
 
-      <h3 className="text-xl font-bold mb-2 text-gray-800">{classroom.name}</h3>
-      <p className="text-gray-600 text-sm mb-4">
+      <h3 className="text-xl font-bold mb-2 text-gray-800 dark:text-white">{classroom.name}</h3>
+      <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
         {classroom.description}
       </p>
 
-      <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-        <div className="flex items-center gap-2 text-gray-500 text-sm">
+      <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm">
           <Users className="w-4 h-4" />
           <span>{classroom.participants} members</span>
         </div>
