@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Flame, Home, BookOpen, Users2, User } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -10,7 +11,7 @@ export default function Navbar() {
   const isActive = (path: string) => pathname === path;
 
   return (
-    <nav className="w-full flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white shadow-sm">
+    <nav className="w-full flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm">
       {/* 🔥 Logo */}
       <Link href="/" className="flex items-center gap-2">
         <div className="p-1.5 rounded-lg bg-gradient-to-br from-orange-500 to-yellow-400 shadow">
@@ -21,10 +22,10 @@ export default function Navbar() {
         </h1>
       </Link>
 
-      {/* 🧭 Navigation + Login */}
+      {/* 🧭 Navigation + Theme Toggle + Login */}
       <div className="flex items-center gap-6">
         {/* Menu */}
-        <div className="flex items-center gap-6 text-gray-800 font-medium text-base">
+        <div className="flex items-center gap-6 text-gray-800 dark:text-gray-200 font-medium text-base">
           <Link
             href="/"
             className={`flex items-center gap-1.5 transition-colors ${
@@ -65,6 +66,9 @@ export default function Navbar() {
             Profile
           </Link>
         </div>
+
+        {/* Theme Toggle */}
+        <ThemeToggle />
 
         {/* 🔐 Login Button */}
         <Link

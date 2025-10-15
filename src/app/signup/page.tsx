@@ -40,20 +40,17 @@ export default function SignUpPage() {
     try {
       showLoading("Đang tạo tài khoản...");
 
-      const res = await publicApiService.register(form);
-      const data = res as {
-        accessToken?: string;
-        refreshToken?: string;
-        message?: string;
-        succeeded?: boolean;
-      };
+      // ✅ Gọi API và nhận response đúng
+      const data = await publicApiService.register(form);
 
-      if (data.accessToken) {
+      if (data.succeeded && data.accessToken) {
         const { setToken, setRefreshToken } = useTokenInfoStorage.getState();
         setToken(data.accessToken);
-        setRefreshToken(data.refreshToken ?? "");
+        setRefreshToken(data.refreshToken);
 
-        showSuccess(data.message || "Tạo tài khoản thành công 🔥");
+        localStorage.setItem("user", JSON.stringify(data.user));
+
+        showSuccess(`Chào mừng ${data.user.firstName}! 🎉`);
         router.push("/");
       } else if (data.succeeded) {
         showSuccess(
