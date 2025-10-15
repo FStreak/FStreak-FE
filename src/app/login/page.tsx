@@ -21,19 +21,19 @@ export default function LoginPage() {
     try {
       showLoading("Đang đăng nhập...");
 
-      const res = await publicApiService.login({ email, password });
-      const data = res as {
-        accessToken?: string;
-        refreshToken?: string;
-        message?: string;
-      };
+      // ✅ Gọi API và nhận response đúng format
+      const data = await publicApiService.login({ email, password });
 
-      if (data.accessToken) {
+      // ✅ Kiểm tra succeeded và accessToken
+      if (data.succeeded && data.accessToken) {
         const { setToken, setRefreshToken } = useTokenInfoStorage.getState();
         setToken(data.accessToken);
-        setRefreshToken(data.refreshToken ?? "");
+        setRefreshToken(data.refreshToken);
 
-        showSuccess("Đăng nhập thành công 🔥");
+        // Lưu thông tin user vào localStorage nếu cần
+        localStorage.setItem("user", JSON.stringify(data.user));
+
+        showSuccess(`Chào mừng ${data.user.firstName}! 🔥`);
         router.push("/");
       } else {
         showError(data.message || "Đăng nhập thất bại 😢");
@@ -45,7 +45,7 @@ export default function LoginPage() {
         "Không thể đăng nhập. Vui lòng kiểm tra lại thông tin.";
 
       showError(message);
-      console.error("Login failed:", message);
+      console.error("❌ Login failed:", message);
     } finally {
       setLoading(false);
     }
