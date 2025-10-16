@@ -92,7 +92,7 @@ export const useVideoCall = ({ roomId, onError }: UseVideoCallOptions): UseVideo
           // Refresh token
           try {
             const tokenResponse = await privateApiService.refreshAgoraTokens(roomId);
-            await agoraService.renewToken(tokenResponse.data.token);
+            await agoraService.renewToken(tokenResponse.token);
             console.log("Token refreshed successfully");
           } catch (error) {
             console.error("Failed to refresh token:", error);
@@ -121,7 +121,7 @@ export const useVideoCall = ({ roomId, onError }: UseVideoCallOptions): UseVideo
       tokenRefreshTimerRef.current = setInterval(async () => {
         try {
           const tokenResponse = await privateApiService.refreshAgoraTokens(roomId);
-          await agoraService.renewToken(tokenResponse.data.token);
+          await agoraService.renewToken(tokenResponse.token);
           console.log("Token auto-refreshed");
         } catch (error) {
           console.error("Failed to auto-refresh token:", error);
@@ -239,15 +239,20 @@ export const useVideoCall = ({ roomId, onError }: UseVideoCallOptions): UseVideo
   }, [roomId, onError]);
 
   /**
-   * Cleanup on unmount
+   * Cleanup on unmount only
+   * ⚠️ Don't add dependencies here - we only want cleanup on unmount, not on re-renders
    */
   useEffect(() => {
     return () => {
-      if (isConnected) {
-        leaveVideoCall();
+      // Only cleanup when hook is truly unmounting
+      // Using agoraService directly to avoid stale closure issues
+      if (agoraService.getClient()) {
+        console.log("🧹 useVideoCall unmounting - cleaning up Agora connection");
+        agoraService.leave().catch(console.error);
       }
     };
-  }, [isConnected, leaveVideoCall]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only run cleanup on unmount
 
   return {
     // State

@@ -9,6 +9,7 @@ import type { StudyRoomDto, MediaStatusUpdate, ScreenSharingStatusUpdate } from 
 import { Video, VideoOff, Mic, MicOff, Monitor, MonitorOff, Phone, PhoneOff, MessageCircle, Users } from "lucide-react";
 import ChatBox from "./ChatBox";
 import ParticipantsPanel from "./ParticipantsPanel";
+import { ThemeToggle } from "./theme-toggle";
 
 interface VideoCallRoomProps {
   roomId: number;
@@ -36,7 +37,24 @@ export default function VideoCallRoom({
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
   const [currentRoomUserId, setCurrentRoomUserId] = useState<number | null>(null); // 🆕 Store roomUserId
   const hasInitializedRef = useRef(false);
+  const isCleaningUpRef = useRef(false); // 🆕 Track cleanup to prevent multiple calls
   const localVideoRef = useRef<HTMLDivElement>(null);
+  
+  // 🆕 Get user info from JWT token
+  const getUserInfoFromToken = () => {
+    const token = useTokenInfoStorage.getState().token;
+    if (!token) return { userId: "", userName: "Unknown" };
+    
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return {
+        userId: payload.sub || payload.userId || "",
+        userName: payload.name || payload.username || payload.unique_name || "Unknown"
+      };
+    } catch {
+      return { userId: "", userName: "Unknown" };
+    }
+  };
 
   const {
     isConnected,
@@ -172,23 +190,31 @@ export default function VideoCallRoom({
           roomUserId: currentRoomUserId,
         });
         
-        // ✅ Use UID from backend response (which should match the token)
-        // Backend returns uid as "0", convert to number for Agora
-        let agoraUid: string | number | null = 0;
+        // ✅ Use roomUserId as Agora UID (from SignalR UserJoined event)
+        // If not available, fallback to uid from backend
+        let agoraUid: string | number = 0;
         
-        if (uid !== null && uid !== undefined) {
-          // Try to parse as number
+        if (currentRoomUserId !== null && currentRoomUserId !== undefined) {
+          // Use roomUserId from SignalR (e.g., 101)
+          agoraUid = Number(currentRoomUserId);
+          console.log("✅ Using roomUserId as Agora UID:", agoraUid);
+        } else if (uid !== null && uid !== undefined) {
+          // Fallback to uid from backend
           const parsedUid = typeof uid === 'string' ? parseInt(uid, 10) : uid;
           if (!isNaN(parsedUid)) {
             agoraUid = parsedUid;
           } else {
-            agoraUid = uid; // Keep as string if not a valid number
+            agoraUid = 0; // Default to 0 if parsing fails
           }
+          console.log("⚠️ Fallback: Using backend uid as Agora UID:", agoraUid);
+        } else {
+          console.warn("⚠️ No valid UID available, using 0");
         }
         
         console.log("🔍 Final UID for Agora:", {
-          original: uid,
-          parsed: agoraUid,
+          roomUserId: currentRoomUserId,
+          backendUid: uid,
+          finalAgoraUid: agoraUid,
           type: typeof agoraUid,
         });
         
@@ -214,10 +240,14 @@ export default function VideoCallRoom({
 
     return () => {
       console.log("🧹 Cleaning up VideoCallRoom...");
-      if (isConnected) {
-        leaveVideoCall();
+      // 🔥 Only cleanup once when component actually unmounts
+      if (!isCleaningUpRef.current) {
+        isCleaningUpRef.current = true;
+        if (isConnected) {
+          leaveVideoCall();
+        }
+        signalRService.leaveRoom(roomId);
       }
-      signalRService.leaveRoom(roomId);
     };
   }, []); // Empty dependency array - only run once on mount
 
@@ -314,195 +344,220 @@ export default function VideoCallRoom({
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900">
-      {/* Header */}
-      <header className="bg-gray-800 text-white p-4 border-b border-gray-700">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold">{roomName}</h1>
-            <p className="text-sm text-gray-400">Room ID: {roomId}</p>
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header - Modern UI from FStreak-FE-Temp */}
+      <div className="bg-card border-b border-border px-6 py-4">
+        <div className="flex items-center justify-between max-w-7xl mx-auto">
+          <div className="flex items-center gap-3">
+            <div className="text-3xl">📚</div>
+            <div>
+              <h1 className="text-xl font-bold">{roomName}</h1>
+              <p className="text-sm text-muted-foreground">Room #{roomId}</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-400">
-              {remoteUsers.length + 1} participants
-            </span>
-            {isSignalRConnected && (
-              <span className="w-2 h-2 bg-green-500 rounded-full" title="Connected"></span>
-            )}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Users className="w-4 h-4" />
+              <span>{remoteUsers.length + 1} members online</span>
+              {isSignalRConnected && (
+                <span className="ml-2 w-2 h-2 bg-green-500 rounded-full" title="Connected" />
+              )}
+            </div>
+            {/* Theme Toggle */}
+            <ThemeToggle />
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* Video Grid */}
-      <main className="flex-1 p-4 overflow-hidden">
-        <div className={`grid gap-4 h-full ${
-          remoteUsers.length === 0 ? 'grid-cols-1' :
-          remoteUsers.length === 1 ? 'grid-cols-2' :
-          remoteUsers.length <= 4 ? 'grid-cols-2 grid-rows-2' :
-          'grid-cols-3 grid-rows-3'
-        }`}>
-          {/* Local Video */}
-          <div className="relative bg-gray-800 rounded-lg overflow-hidden">
-            <div
-              ref={localVideoRef}
-              className="w-full h-full"
-            />
-            {!isVideoOn && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
-                <VideoOff className="w-16 h-16 text-gray-400" />
+      {/* Main Content - Centered Layout from FStreak-FE-Temp */}
+      <main className="flex-1 flex items-center justify-center p-6">
+        <div className="w-full max-w-6xl">
+          {/* Video Grid - Card style from FStreak-FE-Temp */}
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            {/* Local Video - Main Card */}
+            <div className={`relative aspect-video bg-muted flex items-center justify-center rounded-lg overflow-hidden border border-border ${
+              remoteUsers.length === 0 ? 'col-span-2 lg:col-span-3' : 'col-span-1'
+            }`}>
+              <div
+                ref={localVideoRef}
+                className="w-full h-full"
+              />
+              {!isVideoOn && (
+                <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                  <div className="text-center">
+                    <div className="w-32 h-32 rounded-full bg-primary/20 flex items-center justify-center mb-4 mx-auto">
+                      <span className="text-5xl">👤</span>
+                    </div>
+                    <p className="text-muted-foreground">Camera is off</p>
+                  </div>
+                </div>
+              )}
+              <div className="absolute bottom-4 left-4 bg-black/60 text-white px-3 py-1 rounded-full text-sm">
+                You {isScreenSharing && "• Sharing"}
               </div>
-            )}
-            <div className="absolute bottom-4 left-4 bg-black/50 px-3 py-1 rounded-full text-white text-sm">
-              You {isScreenSharing && "(Sharing)"}
+              {(!isVideoOn || !isAudioOn) && (
+                <div className="absolute top-4 right-4 flex gap-2">
+                  {!isVideoOn && (
+                    <div className="bg-red-500 rounded-full p-1.5">
+                      <VideoOff className="w-4 h-4 text-white" />
+                    </div>
+                  )}
+                  {!isAudioOn && (
+                    <div className="bg-red-500 rounded-full p-1.5">
+                      <MicOff className="w-4 h-4 text-white" />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="absolute top-4 right-4 flex gap-2">
-              {!isVideoOn && <VideoOff className="w-5 h-5 text-red-500" />}
-              {!isAudioOn && <MicOff className="w-5 h-5 text-red-500" />}
+
+            {/* Remote Videos - Card style */}
+            {remoteUsers.map((user) => (
+              <div key={user.uid} className="relative aspect-video bg-muted/50 flex items-center justify-center rounded-lg overflow-hidden border border-border">
+                <video
+                  ref={(ref) => {
+                    if (ref && user.videoTrack) {
+                      user.videoTrack.play(ref);
+                    }
+                  }}
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+                {!user.videoTrack && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
+                    <div className="text-center">
+                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2">
+                        <span className="text-2xl">👤</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">Participant {user.uid}</p>
+                    </div>
+                  </div>
+                )}
+                <div className="absolute bottom-4 left-4 bg-black/60 text-white px-3 py-1 rounded-full text-sm">
+                  User {user.uid}
+                </div>
+                {user.audioTrack && (
+                  <div className="absolute top-4 right-4 bg-green-500 rounded-full p-1.5">
+                    <Mic className="w-4 h-4 text-white" />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          {/* Control Bar - Modern Card style from FStreak-FE-Temp */}
+          <div className="bg-card rounded-2xl p-6 shadow-lg border border-border">
+            <div className="flex items-center justify-center gap-4">
+              {!isConnected ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-primary"></div>
+                  <span>Connecting to video call...</span>
+                </div>
+              ) : (
+                <>
+                  {/* Camera Toggle */}
+                  <button
+                    onClick={toggleCamera}
+                    className={`w-14 h-14 rounded-full transition-all flex items-center justify-center ${
+                      isVideoOn
+                        ? 'bg-secondary hover:bg-secondary/80'
+                        : 'bg-destructive hover:bg-destructive/90'
+                    }`}
+                    title={isVideoOn ? 'Turn off camera' : 'Turn on camera'}
+                  >
+                    {isVideoOn ? (
+                      <Video className="w-6 h-6" />
+                    ) : (
+                      <VideoOff className="w-6 h-6" />
+                    )}
+                  </button>
+
+                  {/* Microphone Toggle */}
+                  <button
+                    onClick={toggleMicrophone}
+                    className={`w-14 h-14 rounded-full transition-all flex items-center justify-center ${
+                      isAudioOn
+                        ? 'bg-secondary hover:bg-secondary/80'
+                        : 'bg-destructive hover:bg-destructive/90'
+                    }`}
+                    title={isAudioOn ? 'Mute microphone' : 'Unmute microphone'}
+                  >
+                    {isAudioOn ? (
+                      <Mic className="w-6 h-6" />
+                    ) : (
+                      <MicOff className="w-6 h-6" />
+                    )}
+                  </button>
+
+                  {/* Screen Share Toggle */}
+                  <button
+                    onClick={isScreenSharing ? stopScreenShare : startScreenShare}
+                    className={`w-14 h-14 rounded-full transition-all flex items-center justify-center ${
+                      isScreenSharing
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                        : 'bg-secondary hover:bg-secondary/80'
+                    }`}
+                    title={isScreenSharing ? 'Stop sharing' : 'Share screen'}
+                  >
+                    {isScreenSharing ? (
+                      <MonitorOff className="w-6 h-6" />
+                    ) : (
+                      <Monitor className="w-6 h-6" />
+                    )}
+                  </button>
+
+                  {/* Leave Call */}
+                  <button
+                    onClick={() => {
+                      leaveVideoCall();
+                      onLeave();
+                    }}
+                    className="w-14 h-14 bg-destructive hover:bg-destructive/90 rounded-full transition-all flex items-center justify-center"
+                    title="Leave call"
+                  >
+                    <PhoneOff className="w-6 h-6" />
+                  </button>
+
+                  {/* Separator */}
+                  <div className="h-8 w-px bg-border mx-2" />
+
+                  {/* Chat Button */}
+                  <button
+                    onClick={() => setIsChatOpen(!isChatOpen)}
+                    className={`w-14 h-14 rounded-full transition-all flex items-center justify-center ${
+                      isChatOpen
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                        : 'bg-secondary hover:bg-secondary/80'
+                    }`}
+                    title="Toggle chat"
+                  >
+                    <MessageCircle className="w-6 h-6" />
+                  </button>
+
+                  {/* Participants Button */}
+                  <button
+                    onClick={() => setIsParticipantsOpen(!isParticipantsOpen)}
+                    className={`w-14 h-14 rounded-full transition-all flex items-center justify-center ${
+                      isParticipantsOpen
+                        ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                        : 'bg-secondary hover:bg-secondary/80'
+                    }`}
+                    title="Toggle participants"
+                  >
+                    <Users className="w-6 h-6" />
+                  </button>
+                </>
+              )}
             </div>
           </div>
-
-          {/* Remote Videos */}
-          {remoteUsers.map((user) => (
-            <div key={user.uid} className="relative bg-gray-800 rounded-lg overflow-hidden">
-              <video
-                ref={(ref) => {
-                  if (ref && user.videoTrack) {
-                    user.videoTrack.play(ref);
-                  }
-                }}
-                autoPlay
-                playsInline
-                className="w-full h-full object-cover"
-              />
-              {!user.videoTrack && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
-                  <VideoOff className="w-16 h-16 text-gray-400" />
-                </div>
-              )}
-              <div className="absolute bottom-4 left-4 bg-black/50 px-3 py-1 rounded-full text-white text-sm">
-                User {user.uid}
-              </div>
-              {user.audioTrack && (
-                <div className="absolute top-4 right-4">
-                  <Mic className="w-5 h-5 text-green-500" />
-                </div>
-              )}
-            </div>
-          ))}
         </div>
       </main>
-
-      {/* Controls */}
-      <footer className="bg-gray-800 border-t border-gray-700 p-4">
-        <div className="flex items-center justify-center gap-4">
-          {!isConnected ? (
-            <div className="flex items-center gap-2 text-gray-400">
-              <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-green-500"></div>
-              <span>Connecting to video call...</span>
-            </div>
-          ) : (
-            <>
-              {/* Camera Toggle */}
-              <button
-                onClick={toggleCamera}
-                className={`p-4 rounded-full transition-colors ${
-                  isVideoOn
-                    ? 'bg-gray-700 hover:bg-gray-600'
-                    : 'bg-red-600 hover:bg-red-700'
-                }`}
-                title={isVideoOn ? 'Turn off camera' : 'Turn on camera'}
-              >
-                {isVideoOn ? (
-                  <Video className="w-6 h-6 text-white" />
-                ) : (
-                  <VideoOff className="w-6 h-6 text-white" />
-                )}
-              </button>
-
-              {/* Microphone Toggle */}
-              <button
-                onClick={toggleMicrophone}
-                className={`p-4 rounded-full transition-colors ${
-                  isAudioOn
-                    ? 'bg-gray-700 hover:bg-gray-600'
-                    : 'bg-red-600 hover:bg-red-700'
-                }`}
-                title={isAudioOn ? 'Mute microphone' : 'Unmute microphone'}
-              >
-                {isAudioOn ? (
-                  <Mic className="w-6 h-6 text-white" />
-                ) : (
-                  <MicOff className="w-6 h-6 text-white" />
-                )}
-              </button>
-
-              {/* Screen Share Toggle */}
-              <button
-                onClick={isScreenSharing ? stopScreenShare : startScreenShare}
-                className={`p-4 rounded-full transition-colors ${
-                  isScreenSharing
-                    ? 'bg-blue-600 hover:bg-blue-700'
-                    : 'bg-gray-700 hover:bg-gray-600'
-                }`}
-                title={isScreenSharing ? 'Stop sharing' : 'Share screen'}
-              >
-                {isScreenSharing ? (
-                  <MonitorOff className="w-6 h-6 text-white" />
-                ) : (
-                  <Monitor className="w-6 h-6 text-white" />
-                )}
-              </button>
-
-              {/* Leave Call */}
-              <button
-                onClick={() => {
-                  leaveVideoCall();
-                  onLeave();
-                }}
-                className="p-4 bg-red-600 hover:bg-red-700 rounded-full transition-colors"
-                title="Leave call"
-              >
-                <PhoneOff className="w-6 h-6 text-white" />
-              </button>
-
-              {/* Separator */}
-              <div className="h-8 w-px bg-gray-600 mx-2" />
-
-              {/* Chat Button */}
-              <button
-                onClick={() => setIsChatOpen(!isChatOpen)}
-                className={`p-4 rounded-full transition-colors ${
-                  isChatOpen
-                    ? 'bg-blue-600 hover:bg-blue-700'
-                    : 'bg-gray-700 hover:bg-gray-600'
-                }`}
-                title="Toggle chat"
-              >
-                <MessageCircle className="w-6 h-6 text-white" />
-              </button>
-
-              {/* Participants Button */}
-              <button
-                onClick={() => setIsParticipantsOpen(!isParticipantsOpen)}
-                className={`p-4 rounded-full transition-colors ${
-                  isParticipantsOpen
-                    ? 'bg-purple-600 hover:bg-purple-700'
-                    : 'bg-gray-700 hover:bg-gray-600'
-                }`}
-                title="Toggle participants"
-              >
-                <Users className="w-6 h-6 text-white" />
-              </button>
-            </>
-          )}
-        </div>
-      </footer>
 
       {/* Chat Box */}
       <ChatBox
         roomId={roomId}
-        userName={useTokenInfoStorage.getState().userName || "Unknown"}
-        userId={useTokenInfoStorage.getState().userId || ""}
+        userName={getUserInfoFromToken().userName}
+        userId={getUserInfoFromToken().userId}
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
       />
@@ -510,7 +565,7 @@ export default function VideoCallRoom({
       {/* Participants Panel */}
       <ParticipantsPanel
         roomId={roomId}
-        currentUserId={useTokenInfoStorage.getState().userId || ""}
+        currentUserId={getUserInfoFromToken().userId}
         isOpen={isParticipantsOpen}
         onClose={() => setIsParticipantsOpen(false)}
       />

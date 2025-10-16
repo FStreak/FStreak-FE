@@ -36,8 +36,9 @@ class SignalRService {
     this.connection = new signalR.HubConnectionBuilder()
       .withUrl(`${apiUrl}/hubs/studyroom`, {
         accessTokenFactory: () => accessToken,
-        skipNegotiation: true,
-        transport: signalR.HttpTransportType.WebSockets,
+        // Remove skipNegotiation to allow fallback transports
+        // skipNegotiation: true,
+        // transport: signalR.HttpTransportType.WebSockets,
       })
       .withAutomaticReconnect({
         nextRetryDelayInMilliseconds: (retryContext) => {
@@ -55,10 +56,12 @@ class SignalRService {
 
     try {
       await this.connection.start();
-      console.log("✅ SignalR Connected");
+      console.log("✅ SignalR Connected to:", `${apiUrl}/hubs/studyroom`);
       this.handlers.onConnected?.();
     } catch (error) {
       console.error("❌ SignalR Connection Error:", error);
+      console.error("   URL:", `${apiUrl}/hubs/studyroom`);
+      console.error("   Make sure backend is running on:", apiUrl);
       this.handlers.onError?.(error as Error);
       throw error;
     }
@@ -133,7 +136,17 @@ class SignalRService {
     });
 
     this.connection.onclose((error) => {
-      console.log("❌ SignalR Connection Closed:", error);
+      if (error) {
+        // Only log non-1006 errors (1006 is normal closure in some cases)
+        const isNormalClosure = error.message?.includes("1006") || error.message?.includes("no reason given");
+        if (!isNormalClosure) {
+          console.error("❌ SignalR Connection Closed with error:", error);
+        } else {
+          console.log("ℹ️ SignalR Connection Closed (normal)");
+        }
+      } else {
+        console.log("ℹ️ SignalR Connection Closed (clean)");
+      }
       this.handlers.onDisconnected?.();
     });
   }

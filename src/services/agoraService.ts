@@ -317,6 +317,13 @@ class AgoraService {
   }
 
   /**
+   * Get Agora client instance
+   */
+  getClient(): IAgoraRTCClient | null {
+    return this.client;
+  }
+
+  /**
    * Toggle camera on/off
    */
   async toggleCamera(): Promise<boolean> {
