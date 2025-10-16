@@ -12,7 +12,7 @@ export interface AgoraConfig {
   appId: string;
   channelName: string;
   token: string;
-  uid: string | number;
+  uid: string | number | null;
 }
 
 export interface RemoteUser {
@@ -50,6 +50,24 @@ class AgoraService {
    */
   async initialize(config: AgoraConfig): Promise<void> {
     try {
+      console.log("🔧 Agora initialize called with:", {
+        appId: config.appId,
+        channelName: config.channelName,
+        token: config.token ? config.token.substring(0, 20) + "..." : "undefined",
+        uid: config.uid,
+      });
+
+      // Validate required parameters
+      if (!config.appId) {
+        throw new Error("appId is required");
+      }
+      if (!config.channelName) {
+        throw new Error("channelName is required");
+      }
+      if (!config.token) {
+        throw new Error("token is required");
+      }
+
       // Create client
       this.client = AgoraRTC.createClient({
         mode: "rtc",
@@ -58,13 +76,83 @@ class AgoraService {
 
       this.setupEventListeners();
 
-      // Join channel
-      await this.client.join(
-        config.appId,
-        config.channelName,
-        config.token,
-        config.uid
-      );
+      console.log("🔗 Attempting to join Agora channel...", {
+        appId: config.appId,
+        channel: config.channelName,
+        uid: config.uid,
+        uidType: typeof config.uid,
+        tokenLength: config.token.length,
+        tokenPrefix: config.token.substring(0, 10),
+      });
+
+      // Convert uid to proper type for Agora
+      let finalUid: number | string | null = null;
+      if (config.uid !== null && config.uid !== undefined) {
+        if (typeof config.uid === 'string') {
+          // Try to parse string to number
+          const parsed = parseInt(config.uid, 10);
+          if (!isNaN(parsed)) {
+            finalUid = parsed;
+            console.log(`🔄 Converted UID from string "${config.uid}" to number ${parsed}`);
+          } else {
+            // Keep as string if not a valid number
+            finalUid = config.uid;
+            console.log(`✓ Keeping UID as string: "${config.uid}"`);
+          }
+        } else {
+          finalUid = config.uid;
+          console.log(`✓ Using UID as number: ${config.uid}`);
+        }
+      } else {
+        finalUid = null;
+        console.log("✓ Using null UID (Agora will auto-assign)");
+      }
+
+      // Join channel: (appId, channel, token, uid)
+      try {
+        console.log("🚀 Calling client.join() with:", {
+          appId: config.appId,
+          channel: config.channelName,
+          uid: finalUid,
+          uidType: typeof finalUid,
+        });
+        
+        await this.client.join(
+          config.appId,
+          config.channelName,
+          config.token,
+          finalUid
+        );
+      } catch (joinError: any) {
+        console.error("❌ Agora join failed with error:", {
+          message: joinError.message,
+          code: joinError.code,
+          name: joinError.name,
+          stack: joinError.stack,
+        });
+        
+        // Enhance error message for common issues
+        if (joinError.message?.includes("invalid vendor key") || 
+            joinError.message?.includes("INVALID_VENDOR_KEY") ||
+            joinError.code === "INVALID_VENDOR_KEY") {
+          throw new Error(
+            `❌ AGORA TOKEN ERROR: Invalid vendor key\n\n` +
+            `This usually means:\n` +
+            `1. Token was generated with wrong AppId\n` +
+            `2. Token was generated with wrong AppCertificate\n` +
+            `3. Token has expired\n\n` +
+            `Debug Info:\n` +
+            `- AppId: ${config.appId}\n` +
+            `- Channel: ${config.channelName}\n` +
+            `- UID: ${config.uid}\n` +
+            `- Token Length: ${config.token.length}\n` +
+            `- Token Start: ${config.token.substring(0, 20)}...\n\n` +
+            `Original Error: ${joinError.message}`
+          );
+        }
+        
+        throw joinError;
+      }
 
       console.log("✅ Agora client joined successfully");
 

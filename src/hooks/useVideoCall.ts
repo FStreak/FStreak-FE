@@ -11,6 +11,13 @@ interface UseVideoCallOptions {
   onError?: (error: Error) => void;
 }
 
+export interface JoinVideoCallParams {
+  appId: string;
+  channel: string;
+  token: string;
+  uid: string | number | null;
+}
+
 interface UseVideoCallReturn {
   // State
   isConnected: boolean;
@@ -21,7 +28,7 @@ interface UseVideoCallReturn {
   remoteUsers: RemoteUser[];
   
   // Actions
-  joinVideoCall: () => Promise<void>;
+  joinVideoCall: (params: JoinVideoCallParams) => Promise<void>;
   leaveVideoCall: () => Promise<void>;
   toggleCamera: () => Promise<void>;
   toggleMicrophone: () => Promise<void>;
@@ -48,22 +55,14 @@ export const useVideoCall = ({ roomId, onError }: UseVideoCallOptions): UseVideo
   /**
    * Join video call
    */
-  const joinVideoCall = useCallback(async () => {
+  const joinVideoCall = useCallback(async (params: JoinVideoCallParams) => {
     try {
-      // 1. Get Agora tokens from API (already done when joining room)
-      // If not, call joinRoom with includeTokens=true
-      const response = await privateApiService.joinRoom(roomId, true);
-      
-      if (!response.data.agoraTokens) {
-        throw new Error("Failed to get Agora tokens");
-      }
+      const { appId, channel, token, uid } = params;
 
-      const { appId, channelName, token, uid } = response.data.agoraTokens;
-
-      // 2. Initialize Agora
+      // Initialize Agora
       const config: AgoraConfig = {
         appId,
-        channelName,
+        channelName: channel,
         token,
         uid,
       };

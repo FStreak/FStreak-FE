@@ -4,17 +4,38 @@ import { useEffect, useState, useRef } from "react";
 import { useVideoCall } from "@/hooks/useVideoCall";
 import { signalRService } from "@/services/signalRService";
 import { privateApiService } from "@/services/ApiPrivate";
+import { useTokenInfoStorage } from "@/store/authStore";
 import type { StudyRoomDto, MediaStatusUpdate, ScreenSharingStatusUpdate } from "@/model/studyRoom/studyRoomTypes";
-import { Video, VideoOff, Mic, MicOff, Monitor, MonitorOff, Phone, PhoneOff } from "lucide-react";
+import { Video, VideoOff, Mic, MicOff, Monitor, MonitorOff, Phone, PhoneOff, MessageCircle, Users } from "lucide-react";
+import ChatBox from "./ChatBox";
+import ParticipantsPanel from "./ParticipantsPanel";
 
 interface VideoCallRoomProps {
   roomId: number;
+  roomName: string;
+  agoraAppId: string;
+  agoraToken: string;
+  channelName: string;
+  uid: string;
+  onLeave: () => void;
 }
 
-export default function VideoCallRoom({ roomId }: VideoCallRoomProps) {
+export default function VideoCallRoom({ 
+  roomId, 
+  roomName,
+  agoraAppId,
+  agoraToken,
+  channelName,
+  uid,
+  onLeave
+}: VideoCallRoomProps) {
   const [roomData, setRoomData] = useState<StudyRoomDto | null>(null);
   const [isSignalRConnected, setIsSignalRConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
+  const [currentRoomUserId, setCurrentRoomUserId] = useState<number | null>(null); // 🆕 Store roomUserId
+  const hasInitializedRef = useRef(false);
   const localVideoRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -39,43 +60,152 @@ export default function VideoCallRoom({ roomId }: VideoCallRoomProps) {
     },
   });
 
-  // Initialize SignalR and load room data
+  // Initialize SignalR and Agora video call
   useEffect(() => {
+    // Prevent multiple initializations
+    if (hasInitializedRef.current) {
+      console.log("⏭️ Already initialized, skipping...");
+      return;
+    }
+
     const init = async () => {
       try {
-        // 1. Load room data
-        const response = await privateApiService.getRoomById(roomId);
-        setRoomData(response.data);
+        console.log("🟢 START: VideoCallRoom init function");
+        console.log("🟢 Props:", { 
+          roomId, 
+          channelName, 
+          agoraAppId, 
+          agoraToken: agoraToken?.substring(0, 20) + "...",
+          uid 
+        });
+        
+        hasInitializedRef.current = true;
 
-        // 2. Connect SignalR
-        const token = localStorage.getItem("accessToken");
+        // 1. Connect SignalR - Get token from Zustand store
+        const authStore = useTokenInfoStorage.getState();
+        const token = authStore.token;
+        
         if (!token) {
-          throw new Error("No access token found");
+          throw new Error("No access token found. Please login again.");
         }
 
+        console.log("🔗 About to connect SignalR...");
         await signalRService.connect(token);
         setIsSignalRConnected(true);
+        console.log("✅ SignalR connected");
 
-        // 3. Join room via SignalR
+        // 2. Join room via SignalR
+        console.log("🚪 About to join SignalR room:", roomId);
         await signalRService.joinRoom(roomId);
+        console.log("✅ Joined SignalR room");
 
-        // 4. Setup SignalR event handlers
+        // 3. Setup SignalR event handlers
         signalRService.on({
+          onUserJoined: (user) => {
+            console.log("👋 User joined room:", user);
+            // 🆕 Save current user's roomUserId for Agora
+            if (user.roomUserId) {
+              setCurrentRoomUserId(user.roomUserId);
+              console.log("✅ Saved roomUserId for Agora:", user.roomUserId);
+            }
+          },
+          onUserLeft: (user) => {
+            console.log("👋 User left room:", user);
+            // Update participants list
+          },
+          onMessageReceived: (message) => {
+            console.log("💬 Message received:", message);
+            // Update chat messages
+          },
           onMediaStatusUpdated: (update: MediaStatusUpdate) => {
-            console.log("Media status updated:", update);
-            // Update UI based on other users' media status
+            console.log("📹 Media status updated:", update);
+            // Update remote users' media status in UI
+            // This syncs camera/mic status across all participants
           },
           onScreenSharingStatusUpdated: (update: ScreenSharingStatusUpdate) => {
-            console.log("Screen sharing status updated:", update);
+            console.log("🖥️ Screen sharing status updated:", update);
             // Update UI when someone starts/stops screen sharing
+            // Show/hide screen sharing indicator
           },
           onUserStatusUpdated: (update) => {
-            console.log("User status updated:", update);
+            console.log("👤 User status updated:", update);
+            // Handle "joined-video", "left-video" status changes
           },
         });
 
+        // 4. Join Agora video call with tokens from props
+        // ✅ Use roomUserId from SignalR as Agora UID
+        
+        // ✅ VALIDATE: Ensure props are not undefined/null FIRST
+        if (!agoraAppId || !agoraToken || !channelName) {
+          throw new Error(
+            "❌ MISSING AGORA CREDENTIALS\n\n" +
+            "Props validation failed:\n" +
+            `- agoraAppId: ${agoraAppId ? '✅ Present' : '❌ Missing'}\n` +
+            `- agoraToken: ${agoraToken ? '✅ Present' : '❌ Missing'}\n` +
+            `- channelName: ${channelName ? '✅ Present' : '❌ Missing'}\n\n` +
+            "These should come from backend API response (joinData.agoraTokens).\n" +
+            "Check parent component props passing."
+          );
+        }
+        
+        // ⏳ Wait for SignalR UserJoined event to get roomUserId
+        console.log("⏳ Waiting for roomUserId from SignalR...");
+        let waitTime = 0;
+        while (!currentRoomUserId && waitTime < 3000) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          waitTime += 100;
+        }
+
+        if (!currentRoomUserId) {
+          console.warn("⚠️ No roomUserId received after 3s, using uid from backend");
+        } else {
+          console.log(`✅ Got roomUserId: ${currentRoomUserId}`);
+        }
+        
+        // DEBUG: Log all props
+        console.log("🔍 Props received in VideoCallRoom:", {
+          agoraAppId,
+          channelName,
+          agoraToken: agoraToken?.substring(0, 20) + "...",
+          uidFromBackend: uid,
+          roomUserId: currentRoomUserId,
+        });
+        
+        // ✅ Use UID from backend response (which should match the token)
+        // Backend returns uid as "0", convert to number for Agora
+        let agoraUid: string | number | null = 0;
+        
+        if (uid !== null && uid !== undefined) {
+          // Try to parse as number
+          const parsedUid = typeof uid === 'string' ? parseInt(uid, 10) : uid;
+          if (!isNaN(parsedUid)) {
+            agoraUid = parsedUid;
+          } else {
+            agoraUid = uid; // Keep as string if not a valid number
+          }
+        }
+        
+        console.log("🔍 Final UID for Agora:", {
+          original: uid,
+          parsed: agoraUid,
+          type: typeof agoraUid,
+        });
+        
+        const joinParams = {
+          appId: agoraAppId,
+          channel: channelName,
+          token: agoraToken,
+          uid: agoraUid, // Use UID from backend token response
+        };
+        
+        console.log("🔍 Join params object:", joinParams);
+        
+        await joinVideoCall(joinParams);
+        console.log("✅ Joined Agora video call");
+
       } catch (err) {
-        console.error("Initialization error:", err);
+        console.error("❌ Initialization error:", err);
         setError(err instanceof Error ? err.message : "Failed to initialize");
       }
     };
@@ -83,12 +213,13 @@ export default function VideoCallRoom({ roomId }: VideoCallRoomProps) {
     init();
 
     return () => {
+      console.log("🧹 Cleaning up VideoCallRoom...");
       if (isConnected) {
         leaveVideoCall();
       }
       signalRService.leaveRoom(roomId);
     };
-  }, [roomId]);
+  }, []); // Empty dependency array - only run once on mount
 
   // Play local video when track is available
   useEffect(() => {
@@ -98,20 +229,86 @@ export default function VideoCallRoom({ roomId }: VideoCallRoomProps) {
   }, [localVideoTrack]);
 
   if (error) {
+    const isAgoraConfigError = error.includes("INVALID AGORA APP ID") || error.includes("invalid vendor key");
+    
     return (
-      <div className="flex items-center justify-center h-screen bg-red-50">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-2">Error</h1>
-          <p className="text-red-500">{error}</p>
+      <div className="flex items-center justify-center h-screen bg-gray-900 p-4">
+        <div className={`max-w-2xl w-full text-center p-8 rounded-lg ${
+          isAgoraConfigError 
+            ? 'bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-500' 
+            : 'bg-red-50 dark:bg-red-900/20'
+        }`}>
+          <h1 className={`text-2xl font-bold mb-4 ${
+            isAgoraConfigError ? 'text-yellow-600' : 'text-red-600'
+          }`}>
+            {isAgoraConfigError ? '⚠️ Agora Configuration Required' : '❌ Error'}
+          </h1>
+          
+          {isAgoraConfigError ? (
+            <div className="text-left space-y-4 text-sm">
+              <p className="text-yellow-700 dark:text-yellow-300 font-semibold">
+                Your Agora AppId is invalid or expired. Follow these steps to fix it:
+              </p>
+              
+              <div className="bg-white dark:bg-gray-800 p-4 rounded-lg space-y-3">
+                <div>
+                  <p className="font-bold text-gray-900 dark:text-white mb-2">1️⃣ Get a valid Agora AppId:</p>
+                  <ul className="list-disc list-inside text-gray-700 dark:text-gray-300 space-y-1 ml-4">
+                    <li>Go to <a href="https://console.agora.io/" target="_blank" className="text-blue-600 underline">https://console.agora.io/</a></li>
+                    <li>Sign up or log in</li>
+                    <li>Create a new project or select existing one</li>
+                    <li>Copy the <strong>AppId</strong> and <strong>AppCertificate</strong></li>
+                  </ul>
+                </div>
+                
+                <div>
+                  <p className="font-bold text-gray-900 dark:text-white mb-2">2️⃣ Update backend configuration:</p>
+                  <p className="text-gray-700 dark:text-gray-300 mb-2">File: <code className="bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">FStreak-BE/FStreak.API/appsettings.json</code></p>
+                  <pre className="bg-gray-100 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto text-left">
+{`"Agora": {
+  "AppId": "YOUR_NEW_APP_ID",
+  "AppCertificate": "YOUR_NEW_APP_CERTIFICATE"
+}`}
+                  </pre>
+                </div>
+                
+                <div>
+                  <p className="font-bold text-gray-900 dark:text-white mb-2">3️⃣ Restart backend server</p>
+                  <p className="text-gray-700 dark:text-gray-300">Stop and restart your ASP.NET Core backend</p>
+                </div>
+                
+                <div>
+                  <p className="font-bold text-gray-900 dark:text-white mb-2">4️⃣ Refresh this page</p>
+                  <p className="text-gray-700 dark:text-gray-300">Try joining the room again</p>
+                </div>
+              </div>
+              
+              <details className="text-left">
+                <summary className="cursor-pointer font-semibold text-yellow-700 dark:text-yellow-300">
+                  🔍 Technical Details
+                </summary>
+                <pre className="mt-2 bg-gray-100 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto whitespace-pre-wrap">
+                  {error}
+                </pre>
+              </details>
+            </div>
+          ) : (
+            <div>
+              <p className="text-red-500 mb-4 whitespace-pre-wrap">{error}</p>
+            </div>
+          )}
+          
+          <button
+            onClick={onLeave}
+            className={`mt-6 px-6 py-3 rounded-lg font-semibold transition ${
+              isAgoraConfigError
+                ? 'bg-yellow-600 text-white hover:bg-yellow-700'
+                : 'bg-red-600 text-white hover:bg-red-700'
+            }`}
+          >
+            ← Back to Classrooms
+          </button>
         </div>
-      </div>
-    );
-  }
-
-  if (!roomData) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
@@ -122,15 +319,15 @@ export default function VideoCallRoom({ roomId }: VideoCallRoomProps) {
       <header className="bg-gray-800 text-white p-4 border-b border-gray-700">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold">{roomData.name}</h1>
-            <p className="text-sm text-gray-400">{roomData.description}</p>
+            <h1 className="text-xl font-bold">{roomName}</h1>
+            <p className="text-sm text-gray-400">Room ID: {roomId}</p>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-400">
-              {roomData.roomUsers.filter(u => u.isOnline).length} participants
+              {remoteUsers.length + 1} participants
             </span>
             {isSignalRConnected && (
-              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+              <span className="w-2 h-2 bg-green-500 rounded-full" title="Connected"></span>
             )}
           </div>
         </div>
@@ -199,13 +396,10 @@ export default function VideoCallRoom({ roomId }: VideoCallRoomProps) {
       <footer className="bg-gray-800 border-t border-gray-700 p-4">
         <div className="flex items-center justify-center gap-4">
           {!isConnected ? (
-            <button
-              onClick={joinVideoCall}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-full font-medium transition-colors"
-            >
-              <Phone className="w-5 h-5" />
-              Join Video Call
-            </button>
+            <div className="flex items-center gap-2 text-gray-400">
+              <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-green-500"></div>
+              <span>Connecting to video call...</span>
+            </div>
           ) : (
             <>
               {/* Camera Toggle */}
@@ -261,16 +455,65 @@ export default function VideoCallRoom({ roomId }: VideoCallRoomProps) {
 
               {/* Leave Call */}
               <button
-                onClick={leaveVideoCall}
+                onClick={() => {
+                  leaveVideoCall();
+                  onLeave();
+                }}
                 className="p-4 bg-red-600 hover:bg-red-700 rounded-full transition-colors"
                 title="Leave call"
               >
                 <PhoneOff className="w-6 h-6 text-white" />
               </button>
+
+              {/* Separator */}
+              <div className="h-8 w-px bg-gray-600 mx-2" />
+
+              {/* Chat Button */}
+              <button
+                onClick={() => setIsChatOpen(!isChatOpen)}
+                className={`p-4 rounded-full transition-colors ${
+                  isChatOpen
+                    ? 'bg-blue-600 hover:bg-blue-700'
+                    : 'bg-gray-700 hover:bg-gray-600'
+                }`}
+                title="Toggle chat"
+              >
+                <MessageCircle className="w-6 h-6 text-white" />
+              </button>
+
+              {/* Participants Button */}
+              <button
+                onClick={() => setIsParticipantsOpen(!isParticipantsOpen)}
+                className={`p-4 rounded-full transition-colors ${
+                  isParticipantsOpen
+                    ? 'bg-purple-600 hover:bg-purple-700'
+                    : 'bg-gray-700 hover:bg-gray-600'
+                }`}
+                title="Toggle participants"
+              >
+                <Users className="w-6 h-6 text-white" />
+              </button>
             </>
           )}
         </div>
       </footer>
+
+      {/* Chat Box */}
+      <ChatBox
+        roomId={roomId}
+        userName={useTokenInfoStorage.getState().userName || "Unknown"}
+        userId={useTokenInfoStorage.getState().userId || ""}
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+      />
+
+      {/* Participants Panel */}
+      <ParticipantsPanel
+        roomId={roomId}
+        currentUserId={useTokenInfoStorage.getState().userId || ""}
+        isOpen={isParticipantsOpen}
+        onClose={() => setIsParticipantsOpen(false)}
+      />
     </div>
   );
 }
