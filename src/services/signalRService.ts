@@ -81,26 +81,42 @@ class SignalRService {
       this.handlers.onUserLeft?.(user);
     });
 
-    // Message events
-    this.connection.on("ReceiveMessage", (message: RoomMessageDto) => {
-      console.log("💬 Message received:", message.content);
+    // Message events - Match backend events exactly
+    this.connection.on("NewMessage", (message: RoomMessageDto) => {
+      console.log("💬 NewMessage received:", message);
       this.handlers.onMessageReceived?.(message);
     });
 
-    // Video call events
+    this.connection.on("NewEmoji", (message: RoomMessageDto) => {
+      console.log("😊 NewEmoji received:", message);
+      this.handlers.onMessageReceived?.(message);
+    });
+
+    // Video call events - Match backend events exactly
     this.connection.on("MediaStatusUpdated", (update: MediaStatusUpdate) => {
-      console.log("🎥 Media status updated:", update);
+      console.log("🎥 MediaStatusUpdated:", update);
       this.handlers.onMediaStatusUpdated?.(update);
     });
 
     this.connection.on("ScreenSharingStatusUpdated", (update: ScreenSharingStatusUpdate) => {
-      console.log("🖥️ Screen sharing status updated:", update);
+      console.log("🖥️ ScreenSharingStatusUpdated:", update);
       this.handlers.onScreenSharingStatusUpdated?.(update);
     });
 
     this.connection.on("UserStatusUpdated", (update: UserStatusUpdate) => {
-      console.log("📊 User status updated:", update);
+      console.log("📊 UserStatusUpdated:", update);
       this.handlers.onUserStatusUpdated?.(update);
+    });
+
+    // Webinar mode events
+    this.connection.on("SpeakRequestReceived", (data: { userId: string; userName: string; timestamp: string }) => {
+      console.log("🙋 SpeakRequestReceived:", data);
+      // Handle speak request
+    });
+
+    this.connection.on("SpeakingPermissionChanged", (data: { granted: boolean; grantedBy: string; timestamp: string }) => {
+      console.log("🎤 SpeakingPermissionChanged:", data);
+      // Handle speaking permission change
     });
 
     // Connection events
@@ -166,15 +182,15 @@ class SignalRService {
   }
 
   /**
-   * Send a message to the room
+   * Send a message to the room (Text message)
    */
-  async sendMessage(roomId: number, content: string, messageType: number = 0): Promise<void> {
+  async sendMessage(roomId: number, message: string): Promise<void> {
     if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
       throw new Error("SignalR not connected");
     }
 
     try {
-      await this.connection.invoke("SendMessage", roomId, content, messageType);
+      await this.connection.invoke("SendMessage", roomId, message);
       console.log("✅ Message sent");
     } catch (error) {
       console.error("❌ Failed to send message:", error);
@@ -183,7 +199,25 @@ class SignalRService {
   }
 
   /**
+   * Send an emoji to the room
+   */
+  async sendEmoji(roomId: number, emoji: string): Promise<void> {
+    if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
+      throw new Error("SignalR not connected");
+    }
+
+    try {
+      await this.connection.invoke("SendEmoji", roomId, emoji);
+      console.log("✅ Emoji sent");
+    } catch (error) {
+      console.error("❌ Failed to send emoji:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Update media status (video/audio on/off)
+   * Match backend: UpdateMediaStatus(int roomId, MediaStatusUpdate status)
    */
   async updateMediaStatus(roomId: number, isVideoOn: boolean, isAudioOn: boolean): Promise<void> {
     if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
@@ -191,7 +225,10 @@ class SignalRService {
     }
 
     try {
-      await this.connection.invoke("UpdateMediaStatus", roomId, isVideoOn, isAudioOn);
+      await this.connection.invoke("UpdateMediaStatus", roomId, {
+        IsVideoOn: isVideoOn,
+        IsAudioOn: isAudioOn,
+      });
       console.log(`✅ Media status updated: Video=${isVideoOn}, Audio=${isAudioOn}`);
     } catch (error) {
       console.error("❌ Failed to update media status:", error);
@@ -201,6 +238,7 @@ class SignalRService {
 
   /**
    * Update screen sharing status
+   * Match backend: UpdateScreenSharingStatus(int roomId, bool isSharing)
    */
   async updateScreenSharingStatus(roomId: number, isSharing: boolean): Promise<void> {
     if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
@@ -217,18 +255,57 @@ class SignalRService {
   }
 
   /**
-   * Update user status (joined-video, left-video, raised-hand, etc.)
+   * Update user status (joined-video, left-video, etc.)
+   * Match backend: UpdateUserStatus(int roomId, UserStatusUpdate status)
    */
-  async updateUserStatus(roomId: number, status: string, metadata?: string): Promise<void> {
+  async updateUserStatus(roomId: number, status: string): Promise<void> {
     if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
       throw new Error("SignalR not connected");
     }
 
     try {
-      await this.connection.invoke("UpdateUserStatus", roomId, status, metadata);
+      await this.connection.invoke("UpdateUserStatus", roomId, {
+        Status: status,
+      });
       console.log(`✅ User status updated: ${status}`);
     } catch (error) {
       console.error("❌ Failed to update user status:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Request to speak (Webinar mode)
+   * Match backend: RequestToSpeak(int roomId)
+   */
+  async requestToSpeak(roomId: number): Promise<void> {
+    if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
+      throw new Error("SignalR not connected");
+    }
+
+    try {
+      await this.connection.invoke("RequestToSpeak", roomId);
+      console.log("✅ Speak request sent");
+    } catch (error) {
+      console.error("❌ Failed to send speak request:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Grant or revoke speaking permission (Webinar mode)
+   * Match backend: GrantSpeakingPermission(int roomId, string targetUserId, bool grant)
+   */
+  async grantSpeakingPermission(roomId: number, targetUserId: string, grant: boolean): Promise<void> {
+    if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
+      throw new Error("SignalR not connected");
+    }
+
+    try {
+      await this.connection.invoke("GrantSpeakingPermission", roomId, targetUserId, grant);
+      console.log(`✅ Speaking permission ${grant ? "granted" : "revoked"} for user ${targetUserId}`);
+    } catch (error) {
+      console.error("❌ Failed to grant/revoke speaking permission:", error);
       throw error;
     }
   }

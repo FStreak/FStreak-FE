@@ -3,10 +3,23 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { privateApiService } from "@/services/ApiPrivate";
-import VideoCallRoom from "@/components/VideoCallRoom";
+import dynamic from "next/dynamic";
 import { toast } from "react-hot-toast";
 import type { JoinRoomResponse, StudyRoomDto } from "@/model/studyRoom/studyRoomTypes";
 import { ArrowLeft, Users, Clock, Lock } from "lucide-react";
+
+// ✅ Dynamic import to prevent SSR issues with Agora RTC SDK
+const VideoCallRoom = dynamic(() => import("@/components/VideoCallRoom"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-orange-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-orange-500 mx-auto mb-4"></div>
+        <p className="text-gray-600 dark:text-gray-400 text-lg">Loading video call...</p>
+      </div>
+    </div>
+  ),
+});
 
 export default function ClassroomDetailPage() {
   const router = useRouter();
@@ -53,6 +66,59 @@ export default function ClassroomDetailPage() {
       const response = await privateApiService.joinRoom(roomId, true);
       
       console.log("✅ Join room response:", response);
+      console.log("🔑 Full Agora Tokens:", JSON.stringify(response.agoraTokens, null, 2));
+      console.log("🔑 Agora AppId from backend:", response.agoraTokens?.appId);
+      console.log("🎫 Agora Token FULL:", response.agoraTokens?.token);
+      console.log("🎫 Token Length:", response.agoraTokens?.token?.length);
+      console.log("🎫 Token First 50 chars:", response.agoraTokens?.token?.substring(0, 50));
+      console.log("📺 Channel Name:", response.agoraTokens?.channelName);
+      console.log("🆔 UID from backend:", response.agoraTokens?.uid);
+      console.log("⏰ Token expiration:", response.agoraTokens?.expiration);
+      
+      // 🔍 TOKEN FORMAT CHECK
+      if (response.agoraTokens?.token) {
+        const token = response.agoraTokens.token;
+        console.log("\n🔍 TOKEN FORMAT ANALYSIS:");
+        console.log("  Version prefix:", token.substring(0, 3));
+        
+        if (token.startsWith("007eJx")) {
+          console.log("  ✅ CORRECT: Token uses compressed format (007eJx...)");
+          console.log("  ✅ Backend is using RtcTokenBuilder2!");
+        } else if (token.startsWith("007" + response.agoraTokens.appId)) {
+          console.log("  ❌ ERROR: Token contains AppId after version!");
+          console.log("  ❌ Format: 007 + AppId + content (WRONG!)");
+          console.log("  ❌ Backend is still using OLD RtcTokenBuilder!");
+          console.log("  🔧 FIX: Make sure backend code was rebuilt and restarted");
+        } else if (token.startsWith("007")) {
+          console.log("  ⚠️ Token starts with 007 but format unclear");
+          console.log("  Next chars:", token.substring(3, 10));
+        } else {
+          console.log("  ❌ Unknown token format!");
+        }
+      }
+      
+      // Validate that we got Agora tokens
+      if (!response.agoraTokens || !response.agoraTokens.appId || !response.agoraTokens.token) {
+        throw new Error(
+          "⚠️ Backend did not return valid Agora tokens.\n\n" +
+          "Please check:\n" +
+          "1. Backend Agora configuration in appsettings.json\n" +
+          "2. Make sure AppId and AppCertificate are set correctly\n" +
+          "3. Restart your backend server\n\n" +
+          "Response received: " + JSON.stringify(response.agoraTokens, null, 2)
+        );
+      }
+      
+      // ✅ AppId validation removed - using valid AppId from Agora Console
+      
+      // 🟢 Use token from backend (no more hardcode)
+      // const AGORA_CONSOLE_TOKEN = "007eJxTYOA1WuD3qGyN5+R1qv9kZ0/dnW35pfTnXN2onfNO/Jz1bdM3BYa0RKNkM0sT8zRDk2QT49SkxERDs8Qkg7TU5GRzU7Mki4ANHzIaAhkZfILfMDMyQCCIz8ZQlJ+fG2/OwAAAg9IkAw==";
+      // const AGORA_CONSOLE_APPID = "fa2c6947f14c43ebaa16ab0fecc756b8"; // AppId của bạn
+      // if (response.agoraTokens) {
+      //   response.agoraTokens.token = AGORA_CONSOLE_TOKEN;
+      //   response.agoraTokens.appId = AGORA_CONSOLE_APPID;
+      // }
+      
       setJoinData(response);
       setHasJoined(true);
       toast.success("Joined room successfully! 🎉");
@@ -203,14 +269,24 @@ export default function ClassroomDetailPage() {
 
   // If joined, show video call room
   if (hasJoined && joinData && roomData) {
+    // Type guard to ensure agoraTokens exists
+    const agoraTokens = joinData.agoraTokens;
+    if (!agoraTokens) {
+      return (
+        <div className="flex items-center justify-center min-h-screen">
+          <p className="text-red-500">Error: No Agora tokens available</p>
+        </div>
+      );
+    }
+
     return (
       <VideoCallRoom
         roomId={roomId}
         roomName={roomData.name}
-        agoraAppId={joinData.agoraTokens.appId}
-        agoraToken={joinData.agoraTokens.token}
-        channelName={joinData.agoraTokens.channelName}
-        uid={joinData.agoraTokens.uid}
+        agoraAppId={agoraTokens.appId}
+        agoraToken={agoraTokens.token}
+        channelName={agoraTokens.channelName}
+        uid={agoraTokens.uid}
         onLeave={handleLeaveRoom}
       />
     );
