@@ -37,7 +37,7 @@ export default function ParticipantsPanel({
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Fetch existing participants when panel opens
+  // Fetch existing participants when panel opens (ONLY ONCE)
   useEffect(() => {
     if (!isOpen) return;
 
@@ -46,23 +46,43 @@ export default function ParticipantsPanel({
         setIsLoading(true);
         console.log("📋 Fetching participants for room:", roomId);
         console.log("📋 Current user ID:", currentUserId);
+        console.log("📋 Initial local media state:", { video: localVideoOn, audio: localAudioOn });
         
         const roomData = await privateApiService.getRoomById(roomId);
         const existingUsers = roomData.roomUsers || [];
         
-        console.log("📋 Room users from API:", existingUsers.map(u => ({ userId: u.userId, userName: u.userName })));
+        console.log("📋 Room users from API:", existingUsers.map(u => ({ 
+          userId: u.userId, 
+          userName: u.userName,
+          roomUserId: u.roomUserId 
+        })));
         
-        // Include ALL users (including current user) with initial state
-        const allUsers = existingUsers.map((user) => ({
-          ...user,
-          isVideoOn: false,
-          isAudioOn: false,
-          isScreenSharing: false,
-          isHandRaised: false,
-        }));
+        const currentUidNum = typeof currentUserId === 'number' ? currentUserId : parseInt(currentUserId.toString(), 10);
+        
+        console.log("🔍 Looking for current user with roomUserId:", currentUidNum);
+        const currentUserInApi = existingUsers.find(u => u.roomUserId === currentUidNum);
+        console.log("🔍 Current user found in API?", currentUserInApi ? `Yes: ${currentUserInApi.userName}` : "No");
+        
+        // Map users with initial state
+        const allUsers = existingUsers.map((user) => {
+          const isCurrentUser = user.roomUserId === currentUidNum;
+          
+          if (isCurrentUser) {
+            console.log("✅ Setting current user initial state:", user.userName, { video: localVideoOn, audio: localAudioOn });
+          }
+          
+          return {
+            ...user,
+            // For current user, use actual media state; for remote users, wait for Agora sync
+            isVideoOn: isCurrentUser ? localVideoOn : false,
+            isAudioOn: isCurrentUser ? localAudioOn : false,
+            isScreenSharing: false,
+            isHandRaised: false,
+          };
+        });
         
         setParticipants(allUsers);
-        console.log(`✅ Loaded ${allUsers.length} participants (including you)`);
+        console.log(`✅ Loaded ${allUsers.length} participants with initial state`);
       } catch (error) {
         console.error("❌ Failed to fetch participants:", error);
       } finally {
@@ -71,6 +91,9 @@ export default function ParticipantsPanel({
     };
 
     fetchParticipants();
+    // Note: Only run on panel open, not when localVideoOn/localAudioOn change
+    // Those updates are handled by the Agora sync effect below
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, roomId, currentUserId]);
 
   // Sync Agora media state (real-time camera/mic status)
@@ -78,7 +101,7 @@ export default function ParticipantsPanel({
     if (!isOpen) return;
 
     console.log("🔄 Syncing Agora state - Local:", { video: localVideoOn, audio: localAudioOn });
-    console.log("🔄 Current user ID:", currentUserId);
+    console.log("🔄 Current Agora UID:", currentUserId);
     console.log("🔄 Remote users from Agora:", remoteUsers.map(u => ({ 
       uid: u.uid, 
       hasVideo: u.hasVideo, 
@@ -86,15 +109,44 @@ export default function ParticipantsPanel({
     })));
 
     setParticipants((prev) => {
-      console.log("🔄 Current participants:", prev.map(p => ({ userId: p.userId, userName: p.userName })));
+      console.log("🔄 Current participants:", prev.map(p => ({ 
+        roomUserId: p.roomUserId, 
+        userId: p.userId, 
+        userName: p.userName 
+      })));
       
-      return prev.map((participant) => {
-        // Update current user's media status from local state
-        // Use string comparison to handle type differences
-        const isCurrentUser = participant.userId.toString() === currentUserId.toString();
+      const currentUidNum = typeof currentUserId === 'number' ? currentUserId : parseInt(currentUserId.toString(), 10);
+      
+      // Check if current user exists in participants (by roomUserId)
+      const currentUserIndex = prev.findIndex(p => p.roomUserId === currentUidNum);
+      const currentUserExists = currentUserIndex !== -1;
+      
+      // If current user doesn't exist, add them ONCE
+      let participantsToUpdate = prev;
+      if (!currentUserExists) {
+        console.log("⚠️ Current user not in participants list, adding placeholder");
+        const currentUserPlaceholder: ParticipantWithStatus = {
+          roomUserId: currentUidNum,
+          userId: currentUserId.toString(),
+          userName: "You",
+          joinedAt: new Date().toISOString(),
+          isOnline: true,
+          isVideoOn: localVideoOn,
+          isAudioOn: localAudioOn,
+          isScreenSharing: false,
+          isHandRaised: false,
+        };
+        participantsToUpdate = [...prev, currentUserPlaceholder];
+      }
+      
+      // Now update all participants with latest Agora state
+      return participantsToUpdate.map((participant) => {
+        const isCurrentUser = participant.roomUserId === currentUidNum;
         
         if (isCurrentUser) {
           console.log("✅ Updating current user:", participant.userName, { 
+            roomUserId: participant.roomUserId,
+            agoraUid: currentUidNum,
             video: localVideoOn, 
             audio: localAudioOn 
           });
@@ -105,13 +157,18 @@ export default function ParticipantsPanel({
           };
         }
 
-        // Update remote users' media status from Agora
+        // Update remote users' media status from Agora (match by roomUserId)
         const remoteUser = remoteUsers.find(
-          (remote) => remote.uid.toString() === participant.userId.toString()
+          (remote) => {
+            const remoteUidNum = typeof remote.uid === 'number' ? remote.uid : parseInt(remote.uid.toString(), 10);
+            return remoteUidNum === participant.roomUserId;
+          }
         );
 
         if (remoteUser) {
           console.log("✅ Updating remote user:", participant.userName, {
+            roomUserId: participant.roomUserId,
+            agoraUid: remoteUser.uid,
             video: remoteUser.hasVideo,
             audio: remoteUser.hasAudio
           });
@@ -139,8 +196,29 @@ export default function ParticipantsPanel({
       console.log("👤 User joined:", user);
       
       setParticipants((prev) => {
-        const exists = prev.find((p) => p.userId === user.userId);
-        if (!exists) {
+        // Check if user already exists by userId OR roomUserId
+        const existsByUserId = prev.find((p) => p.userId === user.userId);
+        const existsByRoomUserId = prev.find((p) => p.roomUserId === user.roomUserId);
+        
+        if (existsByUserId || existsByRoomUserId) {
+          // Update existing entry (e.g., replace "You" with real name)
+          return prev.map((p) => {
+            if (p.userId === user.userId || p.roomUserId === user.roomUserId) {
+              console.log(`✅ Updating existing user: "${p.userName}" → "${user.userName}"`);
+              return {
+                ...p,
+                ...user, // Update with real data from SignalR
+                // Keep current media state
+                isVideoOn: p.isVideoOn,
+                isAudioOn: p.isAudioOn,
+                isScreenSharing: p.isScreenSharing,
+                isHandRaised: p.isHandRaised,
+              };
+            }
+            return p;
+          });
+        } else {
+          // Add new user
           return [...prev, { 
             ...user, 
             isVideoOn: false, 
@@ -149,7 +227,6 @@ export default function ParticipantsPanel({
             isHandRaised: false,
           }];
         }
-        return prev;
       });
     };
 
@@ -224,12 +301,18 @@ export default function ParticipantsPanel({
       {/* Participants List */}
       <div className="flex-1 overflow-y-auto">
         {/* All Participants (including current user) */}
-        {participants.map((participant, index) => {
-          const isCurrentUser = participant.userId === currentUserId;
+        {participants
+          // Deduplicate by roomUserId to prevent duplicate "You" entries
+          .filter((participant, index, self) => 
+            index === self.findIndex(p => p.roomUserId === participant.roomUserId)
+          )
+          .map((participant) => {
+          const currentUidNum = typeof currentUserId === 'number' ? currentUserId : parseInt(currentUserId.toString(), 10);
+          const isCurrentUser = participant.roomUserId === currentUidNum;
 
           return (
             <div
-              key={`${participant.userId}-${index}`}
+              key={`participant-${participant.roomUserId}`}
               className={`p-3 border-b border-border transition ${
                 isCurrentUser 
                   ? "bg-primary/5 hover:bg-primary/10" 
