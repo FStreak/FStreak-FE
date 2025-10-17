@@ -55,11 +55,12 @@ export default function ChatBox({ roomId, userName, userId, isOpen, onClose }: C
     // Add welcome message
     setMessages([
       {
-        id: 0,
+        messageId: 0,
+        roomId: roomId,
         content: `Chào mừng ${userName} đến phòng học!`,
         userId: "system",
         userName: "Hệ thống",
-        timestamp: new Date().toISOString(),
+        sentAt: new Date().toISOString(),
         messageType: 0,
       },
     ]);
@@ -67,7 +68,7 @@ export default function ChatBox({ roomId, userName, userId, isOpen, onClose }: C
     return () => {
       // Cleanup if needed
     };
-  }, [isOpen, userName]);
+  }, [isOpen, userName, roomId]);
 
   // Send text message
   const handleSendMessage = async () => {
@@ -97,9 +98,9 @@ export default function ChatBox({ roomId, userName, userId, isOpen, onClose }: C
   if (!isOpen) return null;
 
   return (
-    <div className="fixed right-4 bottom-4 w-96 h-[600px] bg-white rounded-lg shadow-2xl flex flex-col z-50">
+    <div className="fixed right-4 bottom-4 w-96 h-[600px] bg-card dark:bg-card rounded-lg shadow-2xl border border-border flex flex-col z-50">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-t-lg">
+      <div className="flex items-center justify-between p-4 border-b border-border bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 text-white rounded-t-lg">
         <div className="flex items-center space-x-2">
           <MessageCircle size={20} />
           <h3 className="font-semibold">Chat phòng học</h3>
@@ -121,15 +122,15 @@ export default function ChatBox({ roomId, userName, userId, isOpen, onClose }: C
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/30 dark:bg-muted/30">
         {messages.map((msg, index) => {
           const isOwnMessage = msg.userId === userId;
           const isSystemMessage = msg.userId === "system";
 
           if (isSystemMessage) {
             return (
-              <div key={`${msg.id}-${index}`} className="flex justify-center">
-                <div className="bg-blue-100 text-blue-700 px-4 py-2 rounded-full text-xs">
+              <div key={`${msg.messageId}-${index}`} className="flex justify-center">
+                <div className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-4 py-2 rounded-full text-xs">
                   {msg.content}
                 </div>
               </div>
@@ -138,7 +139,7 @@ export default function ChatBox({ roomId, userName, userId, isOpen, onClose }: C
 
           return (
             <div
-              key={`${msg.id}-${index}`}
+              key={`${msg.messageId}-${index}`}
               className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}
             >
               <div
@@ -151,7 +152,7 @@ export default function ChatBox({ roomId, userName, userId, isOpen, onClose }: C
                     <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white text-xs font-bold">
                       {msg.userName?.charAt(0).toUpperCase()}
                     </div>
-                    <span className="text-xs text-gray-600 font-medium">
+                    <span className="text-xs text-muted-foreground font-medium">
                       {msg.userName}
                     </span>
                   </div>
@@ -160,8 +161,8 @@ export default function ChatBox({ roomId, userName, userId, isOpen, onClose }: C
                 <div
                   className={`rounded-2xl px-4 py-2 ${
                     isOwnMessage
-                      ? "bg-blue-500 text-white rounded-br-none"
-                      : "bg-white border border-gray-200 text-gray-800 rounded-bl-none"
+                      ? "bg-blue-500 dark:bg-blue-600 text-white rounded-br-none"
+                      : "bg-card dark:bg-card border border-border text-foreground rounded-bl-none"
                   }`}
                 >
                   <p className="text-sm whitespace-pre-wrap break-words">
@@ -169,10 +170,10 @@ export default function ChatBox({ roomId, userName, userId, isOpen, onClose }: C
                   </p>
                   <p
                     className={`text-xs mt-1 ${
-                      isOwnMessage ? "text-blue-100" : "text-gray-400"
+                      isOwnMessage ? "text-blue-100" : "text-muted-foreground"
                     }`}
                   >
-                    {new Date(msg.timestamp).toLocaleTimeString("vi-VN", {
+                    {new Date(msg.sentAt).toLocaleTimeString("vi-VN", {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
@@ -186,7 +187,7 @@ export default function ChatBox({ roomId, userName, userId, isOpen, onClose }: C
       </div>
 
       {/* Emoji picker */}
-      <div className="px-4 py-2 border-t bg-white flex gap-2">
+      <div className="px-4 py-2 border-t border-border bg-card flex gap-2">
         {["👍", "❤️", "😊", "🎉", "🔥", "💯"].map((emoji) => (
           <button
             key={emoji}
@@ -200,7 +201,7 @@ export default function ChatBox({ roomId, userName, userId, isOpen, onClose }: C
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t bg-white rounded-b-lg">
+      <div className="p-4 border-t border-border bg-card rounded-b-lg">
         <div className="flex gap-2">
           <input
             type="text"
@@ -211,12 +212,12 @@ export default function ChatBox({ roomId, userName, userId, isOpen, onClose }: C
               isConnected ? "Nhập tin nhắn..." : "Đang kết nối..."
             }
             disabled={!isConnected}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="flex-1 px-4 py-2 border border-input bg-background text-foreground rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <button
             onClick={handleSendMessage}
             disabled={!isConnected || !inputMessage.trim()}
-            className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white p-2 rounded-full transition-colors disabled:cursor-not-allowed"
+            className="bg-blue-500 hover:bg-blue-600 disabled:bg-muted disabled:text-muted-foreground text-white p-2 rounded-full transition-colors disabled:cursor-not-allowed"
           >
             <Send size={20} />
           </button>

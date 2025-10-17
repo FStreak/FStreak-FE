@@ -2,14 +2,19 @@
 
 import { useState, useEffect } from "react";
 import { signalRService } from "@/services/signalRService";
+import { privateApiService } from "@/services/ApiPrivate";
 import { Users, Video, VideoOff, Mic, MicOff, Monitor, Hand } from "lucide-react";
 import type { RoomUserDto, MediaStatusUpdate } from "@/model/studyRoom/studyRoomTypes";
+import type { RemoteUser } from "@/services/agoraService";
 
 interface ParticipantsPanelProps {
   roomId: number;
   currentUserId: string;
   isOpen: boolean;
   onClose: () => void;
+  localVideoOn: boolean;
+  localAudioOn: boolean;
+  remoteUsers: RemoteUser[];
 }
 
 interface ParticipantWithStatus extends RoomUserDto {
@@ -24,9 +29,103 @@ export default function ParticipantsPanel({
   currentUserId,
   isOpen,
   onClose,
+  localVideoOn,
+  localAudioOn,
+  remoteUsers,
 }: ParticipantsPanelProps) {
   const [participants, setParticipants] = useState<ParticipantWithStatus[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch existing participants when panel opens
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const fetchParticipants = async () => {
+      try {
+        setIsLoading(true);
+        console.log("📋 Fetching participants for room:", roomId);
+        console.log("📋 Current user ID:", currentUserId);
+        
+        const roomData = await privateApiService.getRoomById(roomId);
+        const existingUsers = roomData.roomUsers || [];
+        
+        console.log("📋 Room users from API:", existingUsers.map(u => ({ userId: u.userId, userName: u.userName })));
+        
+        // Include ALL users (including current user) with initial state
+        const allUsers = existingUsers.map((user) => ({
+          ...user,
+          isVideoOn: false,
+          isAudioOn: false,
+          isScreenSharing: false,
+          isHandRaised: false,
+        }));
+        
+        setParticipants(allUsers);
+        console.log(`✅ Loaded ${allUsers.length} participants (including you)`);
+      } catch (error) {
+        console.error("❌ Failed to fetch participants:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchParticipants();
+  }, [isOpen, roomId, currentUserId]);
+
+  // Sync Agora media state (real-time camera/mic status)
+  useEffect(() => {
+    if (!isOpen) return;
+
+    console.log("🔄 Syncing Agora state - Local:", { video: localVideoOn, audio: localAudioOn });
+    console.log("🔄 Current user ID:", currentUserId);
+    console.log("🔄 Remote users from Agora:", remoteUsers.map(u => ({ 
+      uid: u.uid, 
+      hasVideo: u.hasVideo, 
+      hasAudio: u.hasAudio 
+    })));
+
+    setParticipants((prev) => {
+      console.log("🔄 Current participants:", prev.map(p => ({ userId: p.userId, userName: p.userName })));
+      
+      return prev.map((participant) => {
+        // Update current user's media status from local state
+        // Use string comparison to handle type differences
+        const isCurrentUser = participant.userId.toString() === currentUserId.toString();
+        
+        if (isCurrentUser) {
+          console.log("✅ Updating current user:", participant.userName, { 
+            video: localVideoOn, 
+            audio: localAudioOn 
+          });
+          return {
+            ...participant,
+            isVideoOn: localVideoOn,
+            isAudioOn: localAudioOn,
+          };
+        }
+
+        // Update remote users' media status from Agora
+        const remoteUser = remoteUsers.find(
+          (remote) => remote.uid.toString() === participant.userId.toString()
+        );
+
+        if (remoteUser) {
+          console.log("✅ Updating remote user:", participant.userName, {
+            video: remoteUser.hasVideo,
+            audio: remoteUser.hasAudio
+          });
+          return {
+            ...participant,
+            isVideoOn: remoteUser.hasVideo ?? false,
+            isAudioOn: remoteUser.hasAudio ?? false,
+          };
+        }
+
+        return participant;
+      });
+    });
+  }, [isOpen, localVideoOn, localAudioOn, remoteUsers, currentUserId]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -38,10 +137,17 @@ export default function ParticipantsPanel({
     // Listen for participant events
     const handleUserJoined = (user: RoomUserDto) => {
       console.log("👤 User joined:", user);
+      
       setParticipants((prev) => {
         const exists = prev.find((p) => p.userId === user.userId);
         if (!exists) {
-          return [...prev, { ...user, isVideoOn: false, isAudioOn: false }];
+          return [...prev, { 
+            ...user, 
+            isVideoOn: false, 
+            isAudioOn: false,
+            isScreenSharing: false,
+            isHandRaised: false,
+          }];
         }
         return prev;
       });
@@ -90,14 +196,14 @@ export default function ParticipantsPanel({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed right-4 bottom-4 w-80 h-[600px] bg-white rounded-lg shadow-2xl flex flex-col z-50">
+    <div className="fixed right-4 bottom-4 w-80 h-[600px] bg-card rounded-lg shadow-2xl flex flex-col z-50 border border-border">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-t-lg">
+      <div className="flex items-center justify-between p-4 border-b border-border bg-gradient-to-r from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700 text-white rounded-t-lg">
         <div className="flex items-center space-x-2">
           <Users size={20} />
           <h3 className="font-semibold">Người tham gia</h3>
           <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">
-            {participants.length + 1}
+            {participants.length}
           </span>
         </div>
         <button
@@ -110,61 +216,45 @@ export default function ParticipantsPanel({
 
       {/* Connection status */}
       {!isConnected && (
-        <div className="p-3 bg-yellow-50 border-b border-yellow-200 text-yellow-700 text-sm">
+        <div className="p-3 bg-yellow-500/10 border-b border-yellow-500/20 text-yellow-600 dark:text-yellow-400 text-sm">
           ⚠️ Đang kết nối lại...
         </div>
       )}
 
       {/* Participants List */}
       <div className="flex-1 overflow-y-auto">
-        {/* Current User */}
-        <div className="p-3 border-b bg-blue-50 hover:bg-blue-100 transition">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold">
-                You
-              </div>
-              <div>
-                <p className="font-semibold text-gray-900">
-                  Bạn
-                  <span className="ml-2 text-xs bg-blue-500 text-white px-2 py-0.5 rounded">
-                    Host
-                  </span>
-                </p>
-                <p className="text-xs text-gray-500">Đang trong phòng</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-1">
-              <div className="p-1.5 rounded bg-green-100 text-green-600">
-                <Video size={14} />
-              </div>
-              <div className="p-1.5 rounded bg-green-100 text-green-600">
-                <Mic size={14} />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Other Participants */}
+        {/* All Participants (including current user) */}
         {participants.map((participant, index) => {
           const isCurrentUser = participant.userId === currentUserId;
-          if (isCurrentUser) return null;
 
           return (
             <div
               key={`${participant.userId}-${index}`}
-              className="p-3 border-b hover:bg-gray-50 transition"
+              className={`p-3 border-b border-border transition ${
+                isCurrentUser 
+                  ? "bg-primary/5 hover:bg-primary/10" 
+                  : "hover:bg-muted/50"
+              }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${
+                    isCurrentUser
+                      ? "bg-gradient-to-br from-blue-400 to-blue-600"
+                      : "bg-gradient-to-br from-purple-400 to-pink-400"
+                  }`}>
                     {participant.userName?.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-900">
+                    <p className="font-semibold text-foreground">
                       {participant.userName}
+                      {isCurrentUser && (
+                        <span className="ml-2 text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded">
+                          Bạn
+                        </span>
+                      )}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       {participant.isScreenSharing ? "🖥️ Đang chia sẻ màn hình" : "Đang trong phòng"}
                     </p>
                   </div>
@@ -175,8 +265,8 @@ export default function ParticipantsPanel({
                   <div
                     className={`p-1.5 rounded ${
                       participant.isVideoOn
-                        ? "bg-green-100 text-green-600"
-                        : "bg-red-100 text-red-600"
+                        ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                        : "bg-red-500/10 text-red-600 dark:text-red-400"
                     }`}
                   >
                     {participant.isVideoOn ? (
@@ -188,8 +278,8 @@ export default function ParticipantsPanel({
                   <div
                     className={`p-1.5 rounded ${
                       participant.isAudioOn
-                        ? "bg-green-100 text-green-600"
-                        : "bg-red-100 text-red-600"
+                        ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                        : "bg-red-500/10 text-red-600 dark:text-red-400"
                     }`}
                   >
                     {participant.isAudioOn ? (
@@ -199,12 +289,12 @@ export default function ParticipantsPanel({
                     )}
                   </div>
                   {participant.isScreenSharing && (
-                    <div className="p-1.5 rounded bg-blue-100 text-blue-600">
+                    <div className="p-1.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">
                       <Monitor size={14} />
                     </div>
                   )}
                   {participant.isHandRaised && (
-                    <div className="p-1.5 rounded bg-yellow-100 text-yellow-600">
+                    <div className="p-1.5 rounded bg-yellow-500/10 text-yellow-600 dark:text-yellow-400">
                       <Hand size={14} />
                     </div>
                   )}
@@ -214,9 +304,17 @@ export default function ParticipantsPanel({
           );
         })}
 
+        {/* Loading State */}
+        {isLoading && (
+          <div className="p-8 text-center text-muted-foreground">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-2"></div>
+            <p className="text-sm">Đang tải...</p>
+          </div>
+        )}
+
         {/* Empty State */}
-        {participants.length === 0 && (
-          <div className="p-8 text-center text-gray-400">
+        {!isLoading && participants.length === 0 && (
+          <div className="p-8 text-center text-muted-foreground">
             <Users size={48} className="mx-auto mb-2 opacity-50" />
             <p className="text-sm">Chưa có người tham gia khác</p>
             <p className="text-xs mt-1">
@@ -227,8 +325,8 @@ export default function ParticipantsPanel({
       </div>
 
       {/* Footer */}
-      <div className="p-3 border-t bg-gray-50">
-        <div className="text-xs text-gray-500 text-center">
+      <div className="p-3 border-t border-border bg-muted/30">
+        <div className="text-xs text-muted-foreground text-center">
           💡 Tip: Biểu tượng hiển thị trạng thái camera/mic
         </div>
       </div>

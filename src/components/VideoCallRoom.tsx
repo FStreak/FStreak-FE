@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useVideoCall } from "@/hooks/useVideoCall";
 import { signalRService } from "@/services/signalRService";
 import { privateApiService } from "@/services/ApiPrivate";
@@ -10,6 +10,59 @@ import { Video, VideoOff, Mic, MicOff, Monitor, MonitorOff, Phone, PhoneOff, Mes
 import ChatBox from "./ChatBox";
 import ParticipantsPanel from "./ParticipantsPanel";
 import { ThemeToggle } from "./theme-toggle";
+import type { RemoteUser } from "@/services/agoraService";
+
+// Remote Video Card Component
+function RemoteVideoCard({ 
+  user, 
+  userName 
+}: { 
+  user: RemoteUser; 
+  userName?: string;
+}) {
+  const videoRef = useRef<HTMLDivElement>(null);
+  const displayName = userName || `User ${user.uid}`;
+
+  useEffect(() => {
+    if (videoRef.current && user.videoTrack) {
+      console.log(`🎬 Playing video for user ${user.uid}`);
+      user.videoTrack.play(videoRef.current);
+    }
+
+    // No cleanup needed - track.stop() is handled by agoraService
+  }, [user.videoTrack, user.uid]);
+
+  return (
+    <div className="relative aspect-video bg-muted/50 flex items-center justify-center rounded-lg overflow-hidden border border-border">
+      {user.videoTrack ? (
+        <div
+          ref={videoRef}
+          className="w-full h-full"
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
+          <div className="text-center">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2">
+              <span className="text-2xl">👤</span>
+            </div>
+            <p className="text-sm text-muted-foreground">{displayName}</p>
+            {user.hasVideo === false && (
+              <p className="text-xs text-muted-foreground mt-1">📹 Camera off</p>
+            )}
+          </div>
+        </div>
+      )}
+      <div className="absolute bottom-4 left-4 bg-black/60 text-white px-3 py-1 rounded-full text-sm">
+        {displayName}
+      </div>
+      {user.audioTrack && (
+        <div className="absolute top-4 right-4 bg-green-500 rounded-full p-1.5">
+          <Mic className="w-4 h-4 text-white" />
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface VideoCallRoomProps {
   roomId: number;
@@ -36,6 +89,7 @@ export default function VideoCallRoom({
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
   const [currentRoomUserId, setCurrentRoomUserId] = useState<number | null>(null); // 🆕 Store roomUserId
+  const [uidToUserNameMap, setUidToUserNameMap] = useState<Map<string, string>>(new Map()); // 🆕 Map Agora uid to userName
   const hasInitializedRef = useRef(false);
   const isCleaningUpRef = useRef(false); // 🆕 Track cleanup to prevent multiple calls
   const localVideoRef = useRef<HTMLDivElement>(null);
@@ -74,7 +128,26 @@ export default function VideoCallRoom({
     roomId,
     onError: (err) => {
       console.error("Video call error:", err);
-      setError(err.message);
+      const errorMessage = err.message;
+      
+      // Provide user-friendly error messages
+      if (errorMessage.includes("NOT_READABLE") || errorMessage.includes("Could not start video source")) {
+        setError(
+          "Unable to access camera/microphone.\n\n" +
+          "Possible solutions:\n" +
+          "• Close other tabs or applications using your camera\n" +
+          "• Check browser permissions for camera/microphone\n" +
+          "• Try refreshing the page\n" +
+          "• Restart your browser"
+        );
+      } else if (errorMessage.includes("permission")) {
+        setError(
+          "Camera/microphone permission denied.\n\n" +
+          "Please allow access in your browser settings and refresh the page."
+        );
+      } else {
+        setError(errorMessage);
+      }
     },
   });
 
@@ -112,12 +185,29 @@ export default function VideoCallRoom({
         setIsSignalRConnected(true);
         console.log("✅ SignalR connected");
 
-        // 2. Join room via SignalR
+        // 2. Fetch room data to get user names
+        console.log("📋 Fetching room data for usernames...");
+        const roomDataResponse = await privateApiService.getRoomById(roomId);
+        setRoomData(roomDataResponse);
+        console.log("✅ Room data loaded:", roomDataResponse.roomUsers?.length, "users");
+        
+        // Debug: Log roomUserId and userId comparison
+        if (roomDataResponse?.roomUsers) {
+          console.log("🔍 Room users detailed info:");
+          roomDataResponse.roomUsers.forEach(user => {
+            console.log(`  👤 ${user.userName}:`);
+            console.log(`     roomUserId: ${user.roomUserId}`);
+            console.log(`     userId: ${user.userId}`);
+          });
+          console.log(`🔍 Current Agora UID from props: ${uid}`);
+        }
+
+        // 3. Join room via SignalR
         console.log("🚪 About to join SignalR room:", roomId);
         await signalRService.joinRoom(roomId);
         console.log("✅ Joined SignalR room");
 
-        // 3. Setup SignalR event handlers
+        // 4. Setup SignalR event handlers
         signalRService.on({
           onUserJoined: (user) => {
             console.log("👋 User joined room:", user);
@@ -232,7 +322,26 @@ export default function VideoCallRoom({
 
       } catch (err) {
         console.error("❌ Initialization error:", err);
-        setError(err instanceof Error ? err.message : "Failed to initialize");
+        const errorMessage = err instanceof Error ? err.message : "Failed to initialize";
+        
+        // Provide user-friendly error messages
+        if (errorMessage.includes("NOT_READABLE") || errorMessage.includes("Could not start video source")) {
+          setError(
+            "Unable to access camera/microphone.\n\n" +
+            "Possible solutions:\n" +
+            "• Close other tabs or applications using your camera\n" +
+            "• Check browser permissions for camera/microphone\n" +
+            "• Try refreshing the page\n" +
+            "• Restart your browser"
+          );
+        } else if (errorMessage.includes("permission")) {
+          setError(
+            "Camera/microphone permission denied.\n\n" +
+            "Please allow access in your browser settings and refresh the page."
+          );
+        } else {
+          setError(errorMessage);
+        }
       }
     };
 
@@ -257,6 +366,18 @@ export default function VideoCallRoom({
       localVideoTrack.play(localVideoRef.current);
     }
   }, [localVideoTrack]);
+
+  // Debug: Log remote users changes
+  useEffect(() => {
+    console.log("👥 Remote users updated:", {
+      count: remoteUsers.length,
+      users: remoteUsers.map(u => ({
+        uid: u.uid,
+        hasVideo: !!u.videoTrack,
+        hasAudio: !!u.audioTrack
+      }))
+    });
+  }, [remoteUsers]);
 
   if (error) {
     const isAgoraConfigError = error.includes("INVALID AGORA APP ID") || error.includes("invalid vendor key");
@@ -343,6 +464,58 @@ export default function VideoCallRoom({
     );
   }
 
+  // Helper function to get username from uid
+  const getUserName = useCallback((uid: string | number): string | undefined => {
+    const uidStr = uid.toString();
+    const uidNum = typeof uid === 'number' ? uid : parseInt(uid, 10);
+    
+    // First, check the Map (fastest)
+    const mappedName = uidToUserNameMap.get(uidStr);
+    if (mappedName) {
+      console.log("✅ Found username in map:", uidStr, "→", mappedName);
+      return mappedName;
+    }
+    
+    console.log("🔍 Looking up username for uid:", uidNum);
+    console.log("🔍 Room data available:", !!roomData);
+    console.log("🔍 Room users count:", roomData?.roomUsers?.length);
+    
+    if (!roomData?.roomUsers) {
+      console.log("⚠️ Room data not loaded yet");
+      return undefined;
+    }
+    
+    // 🆕 Try to find by roomUserId (this might be the Agora UID!)
+    const userByRoomUserId = roomData.roomUsers.find(u => {
+      const matches = u.roomUserId === uidNum;
+      if (matches) {
+        console.log("✅ Found match by roomUserId:", u.roomUserId, "→", u.userName);
+      }
+      return matches;
+    });
+    
+    if (userByRoomUserId) {
+      // Cache it in the map for faster future lookups
+      setUidToUserNameMap(prev => new Map(prev).set(uidStr, userByRoomUserId.userName));
+      return userByRoomUserId.userName;
+    }
+    
+    // Fallback: Try to find by userId (won't work with current setup, but keep for future)
+    const userByUserId = roomData.roomUsers.find(u => {
+      const matches = u.userId.toString() === uidStr;
+      if (matches) {
+        console.log("✅ Found match by userId:", u.userId, "→", u.userName);
+      }
+      return matches;
+    });
+    
+    if (!userByRoomUserId && !userByUserId) {
+      console.log("❌ No user found for uid:", uidNum);
+    }
+    
+    return userByUserId?.userName;
+  }, [roomData, uidToUserNameMap]);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header - Modern UI from FStreak-FE-Temp */}
@@ -389,6 +562,11 @@ export default function VideoCallRoom({
                       <span className="text-5xl">👤</span>
                     </div>
                     <p className="text-muted-foreground">Camera is off</p>
+                    {!localVideoTrack && (
+                      <p className="text-xs text-muted-foreground/70 mt-2 max-w-xs mx-auto">
+                        Click camera button to enable
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
@@ -413,36 +591,11 @@ export default function VideoCallRoom({
 
             {/* Remote Videos - Card style */}
             {remoteUsers.map((user) => (
-              <div key={user.uid} className="relative aspect-video bg-muted/50 flex items-center justify-center rounded-lg overflow-hidden border border-border">
-                <video
-                  ref={(ref) => {
-                    if (ref && user.videoTrack) {
-                      user.videoTrack.play(ref);
-                    }
-                  }}
-                  autoPlay
-                  playsInline
-                  className="w-full h-full object-cover"
-                />
-                {!user.videoTrack && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
-                    <div className="text-center">
-                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2">
-                        <span className="text-2xl">👤</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">Participant {user.uid}</p>
-                    </div>
-                  </div>
-                )}
-                <div className="absolute bottom-4 left-4 bg-black/60 text-white px-3 py-1 rounded-full text-sm">
-                  User {user.uid}
-                </div>
-                {user.audioTrack && (
-                  <div className="absolute top-4 right-4 bg-green-500 rounded-full p-1.5">
-                    <Mic className="w-4 h-4 text-white" />
-                  </div>
-                )}
-              </div>
+              <RemoteVideoCard 
+                key={user.uid} 
+                user={user} 
+                userName={getUserName(user.uid)}
+              />
             ))}
           </div>
           {/* Control Bar - Modern Card style from FStreak-FE-Temp */}
@@ -565,9 +718,12 @@ export default function VideoCallRoom({
       {/* Participants Panel */}
       <ParticipantsPanel
         roomId={roomId}
-        currentUserId={getUserInfoFromToken().userId}
+        currentUserId={uid}
         isOpen={isParticipantsOpen}
         onClose={() => setIsParticipantsOpen(false)}
+        localVideoOn={isVideoOn}
+        localAudioOn={isAudioOn}
+        remoteUsers={remoteUsers}
       />
     </div>
   );

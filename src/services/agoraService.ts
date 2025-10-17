@@ -19,6 +19,8 @@ export interface RemoteUser {
   uid: UID;
   videoTrack?: IRemoteVideoTrack;
   audioTrack?: IRemoteAudioTrack;
+  hasVideo?: boolean;  // Track if user has video enabled
+  hasAudio?: boolean;  // Track if user has audio enabled
 }
 
 export interface AgoraEventHandlers {
@@ -160,6 +162,56 @@ class AgoraService {
       await this.createLocalTracks();
       await this.publishLocalTracks();
 
+      // Get existing remote users in the channel and subscribe to them
+      const existingUsers = this.client.remoteUsers;
+      console.log(`👥 Found ${existingUsers.length} existing users in channel:`, existingUsers.map(u => u.uid));
+      
+      for (const user of existingUsers) {
+        console.log(`🔍 Checking existing user ${user.uid}:`, {
+          hasVideo: user.hasVideo,
+          hasAudio: user.hasAudio,
+          videoTrack: !!user.videoTrack,
+          audioTrack: !!user.audioTrack
+        });
+
+        // Add to remote users map with initial media state
+        const remoteUser: RemoteUser = { 
+          uid: user.uid,
+          hasVideo: user.hasVideo,
+          hasAudio: user.hasAudio
+        };
+        this.remoteUsers.set(user.uid, remoteUser);
+
+        // Subscribe to their published tracks
+        if (user.hasVideo && !user.videoTrack) {
+          try {
+            console.log(`📹 Subscribing to video of existing user ${user.uid}`);
+            await this.client.subscribe(user, "video");
+          } catch (error) {
+            console.warn(`⚠️ Failed to subscribe to video of user ${user.uid}:`, error);
+          }
+        }
+
+        if (user.hasAudio && !user.audioTrack) {
+          try {
+            console.log(`🎤 Subscribing to audio of existing user ${user.uid}`);
+            await this.client.subscribe(user, "audio");
+          } catch (error) {
+            console.warn(`⚠️ Failed to subscribe to audio of user ${user.uid}:`, error);
+          }
+        }
+
+        // Update remote user with tracks
+        if (user.videoTrack || user.audioTrack) {
+          remoteUser.videoTrack = user.videoTrack;
+          remoteUser.audioTrack = user.audioTrack;
+          this.remoteUsers.set(user.uid, remoteUser);
+          console.log(`✅ Added existing user ${user.uid} with video=${user.hasVideo}, audio=${user.hasAudio}`);
+        }
+      }
+
+      console.log(`✅ Initialized with ${this.remoteUsers.size} existing remote users`);
+
     } catch (error) {
       console.error("❌ Failed to initialize Agora:", error);
       this.handlers.onError?.(error as Error);
@@ -201,10 +253,14 @@ class AgoraService {
 
         if (mediaType === "video") {
           remoteUser.videoTrack = user.videoTrack;
+          remoteUser.hasVideo = true;
+          console.log(`📹 User ${user.uid} video enabled`);
         } else if (mediaType === "audio") {
           remoteUser.audioTrack = user.audioTrack;
+          remoteUser.hasAudio = true;
           // Auto play audio
           user.audioTrack?.play();
+          console.log(`🎤 User ${user.uid} audio enabled`);
         }
 
         this.remoteUsers.set(user.uid, remoteUser);
@@ -217,15 +273,31 @@ class AgoraService {
 
     // User unpublished (stopped video/audio)
     this.client.on("user-unpublished", (user, mediaType) => {
-      console.log(`📡 User ${user.uid} unpublished ${mediaType}`);
+      console.log(`📴 User ${user.uid} unpublished ${mediaType}`);
       
       const remoteUser = this.remoteUsers.get(user.uid);
       if (remoteUser) {
         if (mediaType === "video") {
+          // Stop the video track before removing it
+          if (remoteUser.videoTrack) {
+            remoteUser.videoTrack.stop();
+            console.log(`🛑 Stopped video track for user ${user.uid}`);
+          }
           remoteUser.videoTrack = undefined;
+          remoteUser.hasVideo = false;
+          console.log(`📹 User ${user.uid} video disabled`);
         } else if (mediaType === "audio") {
+          // Stop the audio track before removing it
+          if (remoteUser.audioTrack) {
+            remoteUser.audioTrack.stop();
+            console.log(`🛑 Stopped audio track for user ${user.uid}`);
+          }
           remoteUser.audioTrack = undefined;
+          remoteUser.hasAudio = false;
+          console.log(`🎤 User ${user.uid} audio disabled`);
         }
+        // Update the map with modified remote user
+        this.remoteUsers.set(user.uid, remoteUser);
       }
 
       this.handlers.onUserUnpublished?.(user.uid, mediaType);
@@ -254,17 +326,53 @@ class AgoraService {
    */
   private async createLocalTracks(): Promise<void> {
     try {
-      [this.localVideoTrack, this.localAudioTrack] = await Promise.all([
+      // Try to create both tracks, but handle individual failures gracefully
+      const trackPromises = await Promise.allSettled([
         AgoraRTC.createCameraVideoTrack({
           encoderConfig: "720p_2",
           optimizationMode: "balanced",
+        }).catch((error) => {
+          console.warn("⚠️ Failed to create video track:", error.message);
+          return null;
         }),
         AgoraRTC.createMicrophoneAudioTrack({
           encoderConfig: "music_standard",
+        }).catch((error) => {
+          console.warn("⚠️ Failed to create audio track:", error.message);
+          return null;
         }),
       ]);
 
-      console.log("✅ Local tracks created");
+      // Extract the results
+      const videoResult = trackPromises[0];
+      const audioResult = trackPromises[1];
+
+      // Set video track if successful
+      if (videoResult.status === "fulfilled" && videoResult.value) {
+        this.localVideoTrack = videoResult.value;
+        console.log("✅ Video track created");
+      } else {
+        console.warn("⚠️ Continuing without video track");
+      }
+
+      // Set audio track if successful
+      if (audioResult.status === "fulfilled" && audioResult.value) {
+        this.localAudioTrack = audioResult.value;
+        console.log("✅ Audio track created");
+      } else {
+        console.warn("⚠️ Continuing without audio track");
+      }
+
+      // If both failed, throw an error
+      if (!this.localVideoTrack && !this.localAudioTrack) {
+        throw new Error(
+          "Failed to create both video and audio tracks. Please check camera/microphone permissions."
+        );
+      }
+
+      console.log(
+        `✅ Local tracks created (Video: ${!!this.localVideoTrack}, Audio: ${!!this.localAudioTrack})`
+      );
     } catch (error) {
       console.error("❌ Failed to create local tracks:", error);
       throw error;
@@ -275,13 +383,26 @@ class AgoraService {
    * Publish local tracks
    */
   private async publishLocalTracks(): Promise<void> {
-    if (!this.client || !this.localVideoTrack || !this.localAudioTrack) {
-      throw new Error("Client or tracks not initialized");
+    if (!this.client) {
+      throw new Error("Client not initialized");
     }
 
     try {
-      await this.client.publish([this.localVideoTrack, this.localAudioTrack]);
-      console.log("✅ Local tracks published");
+      // Publish only the tracks that were successfully created
+      const tracksToPublish = [];
+      if (this.localVideoTrack) {
+        tracksToPublish.push(this.localVideoTrack);
+      }
+      if (this.localAudioTrack) {
+        tracksToPublish.push(this.localAudioTrack);
+      }
+
+      if (tracksToPublish.length > 0) {
+        await this.client.publish(tracksToPublish);
+        console.log(`✅ Local tracks published (${tracksToPublish.length} tracks)`);
+      } else {
+        console.warn("⚠️ No tracks to publish");
+      }
     } catch (error) {
       console.error("❌ Failed to publish local tracks:", error);
       throw error;
@@ -327,13 +448,48 @@ class AgoraService {
    * Toggle camera on/off
    */
   async toggleCamera(): Promise<boolean> {
+    // If no video track exists, try to create one
     if (!this.localVideoTrack) {
-      throw new Error("Local video track not initialized");
+      try {
+        console.log("📹 Attempting to create video track...");
+        this.localVideoTrack = await AgoraRTC.createCameraVideoTrack({
+          encoderConfig: "720p_2",
+          optimizationMode: "balanced",
+        });
+        
+        // Publish the new track
+        if (this.client) {
+          await this.client.publish(this.localVideoTrack);
+          console.log("✅ Video track created and published");
+        }
+        
+        return true; // Camera is now enabled
+      } catch (error) {
+        console.warn("⚠️ Cannot create video track:", error);
+        // Return false but don't throw - user can still use audio
+        return false;
+      }
     }
 
+    // Toggle existing track
     const newState = !this.localVideoTrack.enabled;
-    await this.localVideoTrack.setEnabled(newState);
-    console.log(`📹 Camera ${newState ? "enabled" : "disabled"}`);
+    
+    if (newState) {
+      // Enable and publish
+      await this.localVideoTrack.setEnabled(true);
+      if (this.client && this.localVideoTrack) {
+        await this.client.publish(this.localVideoTrack);
+        console.log("✅ Camera enabled and published");
+      }
+    } else {
+      // Disable and unpublish
+      await this.localVideoTrack.setEnabled(false);
+      if (this.client && this.localVideoTrack) {
+        await this.client.unpublish(this.localVideoTrack);
+        console.log("✅ Camera disabled and unpublished");
+      }
+    }
+    
     return newState;
   }
 
@@ -341,13 +497,47 @@ class AgoraService {
    * Toggle microphone on/off
    */
   async toggleMicrophone(): Promise<boolean> {
+    // If no audio track exists, try to create one
     if (!this.localAudioTrack) {
-      throw new Error("Local audio track not initialized");
+      try {
+        console.log("🎤 Attempting to create audio track...");
+        this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
+          encoderConfig: "music_standard",
+        });
+        
+        // Publish the new track
+        if (this.client) {
+          await this.client.publish(this.localAudioTrack);
+          console.log("✅ Audio track created and published");
+        }
+        
+        return true; // Microphone is now enabled
+      } catch (error) {
+        console.warn("⚠️ Cannot create audio track:", error);
+        // Return false but don't throw
+        return false;
+      }
     }
 
+    // Toggle existing track
     const newState = !this.localAudioTrack.enabled;
-    await this.localAudioTrack.setEnabled(newState);
-    console.log(`🎤 Microphone ${newState ? "enabled" : "disabled"}`);
+    
+    if (newState) {
+      // Enable and publish
+      await this.localAudioTrack.setEnabled(true);
+      if (this.client && this.localAudioTrack) {
+        await this.client.publish(this.localAudioTrack);
+        console.log("✅ Microphone enabled and published");
+      }
+    } else {
+      // Disable and unpublish
+      await this.localAudioTrack.setEnabled(false);
+      if (this.client && this.localAudioTrack) {
+        await this.client.unpublish(this.localAudioTrack);
+        console.log("✅ Microphone disabled and unpublished");
+      }
+    }
+    
     return newState;
   }
 
@@ -355,8 +545,8 @@ class AgoraService {
    * Start screen sharing
    */
   async startScreenShare(): Promise<void> {
-    if (!this.client || !this.localVideoTrack) {
-      throw new Error("Client or video track not initialized");
+    if (!this.client) {
+      throw new Error("Client not initialized");
     }
 
     if (this.isScreenSharing) {
@@ -366,29 +556,60 @@ class AgoraService {
 
     try {
       // Create screen track
-      this.screenTrack = await AgoraRTC.createScreenVideoTrack({
+      const screenTrackResult = await AgoraRTC.createScreenVideoTrack({
         encoderConfig: "1080p_1",
         optimizationMode: "detail", // Better for text/code
       }, "auto");
 
-      // Unpublish camera
-      await this.client.unpublish(this.localVideoTrack);
+      // Handle both possible return types (single track or array)
+      this.screenTrack = Array.isArray(screenTrackResult) 
+        ? screenTrackResult[0] 
+        : screenTrackResult;
+
+      // Unpublish camera if it exists
+      if (this.localVideoTrack) {
+        try {
+          await this.client.unpublish(this.localVideoTrack);
+          console.log("📹 Camera unpublished for screen sharing");
+        } catch (error) {
+          console.warn("⚠️ Failed to unpublish camera:", error);
+        }
+      }
 
       // Publish screen
-      await this.client.publish(this.screenTrack);
+      if (this.screenTrack) {
+        await this.client.publish(this.screenTrack);
+        console.log("🖥️ Screen track published");
+      }
 
       this.isScreenSharing = true;
       console.log("✅ Screen sharing started");
 
       // Handle screen share stop (when user clicks browser's stop button)
-      this.screenTrack.on("track-ended", () => {
-        console.log("Screen sharing stopped by user");
-        this.stopScreenShare().catch(console.error);
-      });
+      if (this.screenTrack) {
+        this.screenTrack.on("track-ended", () => {
+          console.log("Screen sharing stopped by user");
+          this.stopScreenShare().catch(console.error);
+        });
+      }
 
     } catch (error) {
       console.error("❌ Failed to start screen sharing:", error);
       this.isScreenSharing = false;
+      
+      // Check if user cancelled the screen share selection
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (
+        errorMessage.includes("Permission denied") || 
+        errorMessage.includes("NotAllowedError") ||
+        errorMessage.includes("PERMISSION_DENIED")
+      ) {
+        console.log("ℹ️ Screen share cancelled by user");
+        // Don't throw error - user cancellation is not an error
+        return;
+      }
+      
+      // Re-throw other errors
       throw error;
     }
   }
@@ -397,7 +618,7 @@ class AgoraService {
    * Stop screen sharing
    */
   async stopScreenShare(): Promise<void> {
-    if (!this.client || !this.screenTrack || !this.localVideoTrack) {
+    if (!this.client || !this.screenTrack) {
       return;
     }
 
@@ -406,13 +627,22 @@ class AgoraService {
     }
 
     try {
-      // Close screen track
+      // Close and unpublish screen track
       this.screenTrack.close();
       await this.client.unpublish(this.screenTrack);
       this.screenTrack = null;
 
-      // Re-publish camera
-      await this.client.publish(this.localVideoTrack);
+      // Re-publish camera only if it exists
+      if (this.localVideoTrack) {
+        try {
+          await this.client.publish(this.localVideoTrack);
+          console.log("📹 Camera re-published after screen sharing");
+        } catch (error) {
+          console.warn("⚠️ Failed to re-publish camera:", error);
+        }
+      } else {
+        console.log("ℹ️ No camera to re-publish");
+      }
 
       this.isScreenSharing = false;
       console.log("✅ Screen sharing stopped");
