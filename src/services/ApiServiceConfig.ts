@@ -3,8 +3,8 @@ import axios, { type AxiosInstance, type AxiosResponse } from "axios";
 // 🟠 Dùng biến môi trường đúng chuẩn Next.js
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
-  // "https://fstreak-render.onrender.com/api"; 
-  "https://localhost:7281/api";
+ "https://fstreak-render.onrender.com/api"; 
+  // "https://localhost:7281/api";
 
 export const createApiClient = (): AxiosInstance => {
   const client = axios.create({
