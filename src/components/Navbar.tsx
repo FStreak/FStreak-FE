@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Flame, Home, BookOpen, Users2, User } from "lucide-react";
+import { Flame, Home, BookOpen, Users2, User, FileText } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -54,6 +54,16 @@ export default function Navbar() {
           >
             <Users2 className="w-4 h-4" />
             Classrooms
+          </Link>
+
+          <Link
+            href="/studyWall"
+            className={`flex items-center gap-1.5 transition-colors ${
+              isActive("/studyWall") ? "text-orange-500" : "hover:text-orange-500"
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            StudyWall
           </Link>
 
           <Link
