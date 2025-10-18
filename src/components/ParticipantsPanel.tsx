@@ -60,29 +60,38 @@ export default function ParticipantsPanel({
         const currentUidNum = typeof currentUserId === 'number' ? currentUserId : parseInt(currentUserId.toString(), 10);
         
         console.log("🔍 Looking for current user with roomUserId:", currentUidNum);
+        console.log("🔍 All roomUserIds from API:", existingUsers.map(u => u.roomUserId));
         const currentUserInApi = existingUsers.find(u => u.roomUserId === currentUidNum);
         console.log("🔍 Current user found in API?", currentUserInApi ? `Yes: ${currentUserInApi.userName}` : "No");
         
-        // Map users with initial state
-        const allUsers = existingUsers.map((user) => {
-          const isCurrentUser = user.roomUserId === currentUidNum;
-          
-          if (isCurrentUser) {
-            console.log("✅ Setting current user initial state:", user.userName, { video: localVideoOn, audio: localAudioOn });
-          }
-          
+        if (!currentUserInApi && existingUsers.length > 0) {
+          console.log("⚠️ DEBUG: Current UID doesn't match any API roomUserId");
+          console.log("⚠️ Current UID type:", typeof currentUidNum, "Value:", currentUidNum);
+          console.log("⚠️ API roomUserIds types:", existingUsers.map(u => ({
+            value: u.roomUserId,
+            type: typeof u.roomUserId,
+            matches: u.roomUserId === currentUidNum
+          })));
+        }
+        
+        // Filter out current user - we don't show "You" in participants list
+        const usersWithoutCurrentUser = existingUsers.filter(u => u.roomUserId !== currentUidNum);
+        console.log(`🚫 Filtered out current user. Showing ${usersWithoutCurrentUser.length}/${existingUsers.length} participants`);
+        
+        // Map users with initial state (all remote users)
+        const allUsers = usersWithoutCurrentUser.map((user) => {
           return {
             ...user,
-            // For current user, use actual media state; for remote users, wait for Agora sync
-            isVideoOn: isCurrentUser ? localVideoOn : false,
-            isAudioOn: isCurrentUser ? localAudioOn : false,
+            // Remote users start with media off, Agora sync will update
+            isVideoOn: false,
+            isAudioOn: false,
             isScreenSharing: false,
             isHandRaised: false,
           };
         });
         
         setParticipants(allUsers);
-        console.log(`✅ Loaded ${allUsers.length} participants with initial state`);
+        console.log(`✅ Loaded ${allUsers.length} remote participants (excluding current user)`);
       } catch (error) {
         console.error("❌ Failed to fetch participants:", error);
       } finally {
@@ -117,70 +126,53 @@ export default function ParticipantsPanel({
       
       const currentUidNum = typeof currentUserId === 'number' ? currentUserId : parseInt(currentUserId.toString(), 10);
       
-      // Check if current user exists in participants (by roomUserId)
-      const currentUserIndex = prev.findIndex(p => p.roomUserId === currentUidNum);
-      const currentUserExists = currentUserIndex !== -1;
-      
-      // If current user doesn't exist, add them ONCE
-      let participantsToUpdate = prev;
-      if (!currentUserExists) {
-        console.log("⚠️ Current user not in participants list, adding placeholder");
-        const currentUserPlaceholder: ParticipantWithStatus = {
-          roomUserId: currentUidNum,
-          userId: currentUserId.toString(),
-          userName: "You",
-          joinedAt: new Date().toISOString(),
-          isOnline: true,
-          isVideoOn: localVideoOn,
-          isAudioOn: localAudioOn,
-          isScreenSharing: false,
-          isHandRaised: false,
-        };
-        participantsToUpdate = [...prev, currentUserPlaceholder];
-      }
-      
       // Now update all participants with latest Agora state
-      return participantsToUpdate.map((participant) => {
-        const isCurrentUser = participant.roomUserId === currentUidNum;
-        
-        if (isCurrentUser) {
-          console.log("✅ Updating current user:", participant.userName, { 
-            roomUserId: participant.roomUserId,
-            agoraUid: currentUidNum,
-            video: localVideoOn, 
-            audio: localAudioOn 
-          });
-          return {
-            ...participant,
-            isVideoOn: localVideoOn,
-            isAudioOn: localAudioOn,
-          };
-        }
-
-        // Update remote users' media status from Agora (match by roomUserId)
-        const remoteUser = remoteUsers.find(
-          (remote) => {
+      // IMPORTANT: Filter out current user AND users who left (only show remote users)
+      return prev
+        .filter((participant) => {
+          const isCurrentUser = participant.roomUserId === currentUidNum;
+          if (isCurrentUser) {
+            console.log("🚫 Filtering out current user (You) from participants list");
+            return false; // Don't show current user
+          }
+          
+          // Check if this user is still in Agora (active remote user)
+          const stillInAgora = remoteUsers.some((remote) => {
             const remoteUidNum = typeof remote.uid === 'number' ? remote.uid : parseInt(remote.uid.toString(), 10);
             return remoteUidNum === participant.roomUserId;
-          }
-        );
-
-        if (remoteUser) {
-          console.log("✅ Updating remote user:", participant.userName, {
-            roomUserId: participant.roomUserId,
-            agoraUid: remoteUser.uid,
-            video: remoteUser.hasVideo,
-            audio: remoteUser.hasAudio
           });
-          return {
-            ...participant,
-            isVideoOn: remoteUser.hasVideo ?? false,
-            isAudioOn: remoteUser.hasAudio ?? false,
-          };
-        }
+          
+          if (!stillInAgora) {
+            console.log("🗑️ Filtering out user who left:", participant.userName, { roomUserId: participant.roomUserId });
+          }
+          
+          return stillInAgora; // Only keep users still in Agora
+        })
+        .map((participant) => {
+          // Update remote users' media status from Agora (match by roomUserId)
+          const remoteUser = remoteUsers.find(
+            (remote) => {
+              const remoteUidNum = typeof remote.uid === 'number' ? remote.uid : parseInt(remote.uid.toString(), 10);
+              return remoteUidNum === participant.roomUserId;
+            }
+          );
 
-        return participant;
-      });
+          if (remoteUser) {
+            console.log("✅ Updating remote user:", participant.userName, {
+              roomUserId: participant.roomUserId,
+              agoraUid: remoteUser.uid,
+              video: remoteUser.hasVideo,
+              audio: remoteUser.hasAudio
+            });
+            return {
+              ...participant,
+              isVideoOn: remoteUser.hasVideo ?? false,
+              isAudioOn: remoteUser.hasAudio ?? false,
+            };
+          }
+
+          return participant;
+        });
     });
   }, [isOpen, localVideoOn, localAudioOn, remoteUsers, currentUserId]);
 
@@ -196,6 +188,14 @@ export default function ParticipantsPanel({
       console.log("👤 User joined:", user);
       
       setParticipants((prev) => {
+        const currentUidNum = typeof currentUserId === 'number' ? currentUserId : parseInt(currentUserId.toString(), 10);
+        
+        // Skip if this is the current user (don't show "You" in participants)
+        if (user.roomUserId === currentUidNum) {
+          console.log("⚠️ Skipping current user (You) - not showing in participants list");
+          return prev;
+        }
+        
         // Check if user already exists by userId OR roomUserId
         const existsByUserId = prev.find((p) => p.userId === user.userId);
         const existsByRoomUserId = prev.find((p) => p.roomUserId === user.roomUserId);

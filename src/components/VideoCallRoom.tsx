@@ -207,15 +207,53 @@ export default function VideoCallRoom({
         await signalRService.joinRoom(roomId);
         console.log("✅ Joined SignalR room");
 
+        // 3.5. Set current user's roomUserId immediately from props (don't wait for SignalR)
+        // Backend sends uid (roomUserId) in the join response
+        if (uid !== null && uid !== undefined) {
+          const parsedUid = typeof uid === 'string' ? parseInt(uid, 10) : uid;
+          if (!isNaN(parsedUid)) {
+            setCurrentRoomUserId(parsedUid);
+            console.log("✅ Set current user roomUserId from backend:", parsedUid);
+          }
+        }
+
         // 4. Setup SignalR event handlers
         signalRService.on({
           onUserJoined: (user) => {
-            console.log("👋 User joined room:", user);
-            // 🆕 Save current user's roomUserId for Agora
-            if (user.roomUserId) {
-              setCurrentRoomUserId(user.roomUserId);
-              console.log("✅ Saved roomUserId for Agora:", user.roomUserId);
-            }
+            console.log("� SignalR onUserJoined triggered:", {
+              userName: user.userName,
+              roomUserId: user.roomUserId,
+              userId: user.userId,
+            });
+            console.log("�👋 User joined room:", user);
+            // Update roomData with new user (avoid duplicates)
+            setRoomData((prev) => {
+              console.log("📊 Current roomData before add:", {
+                hasRoomData: !!prev,
+                currentUsersCount: prev?.roomUsers?.length || 0,
+                currentUsers: prev?.roomUsers?.map(u => ({ name: u.userName, roomUserId: u.roomUserId })),
+              });
+              
+              if (!prev) return prev;
+              
+              // Check if user already exists
+              const existingUser = prev.roomUsers?.find(u => 
+                u.userId === user.userId || u.roomUserId === user.roomUserId
+              );
+              
+              if (existingUser) {
+                console.log("⚠️ User already in roomData, skipping add:", user.userName);
+                return prev;
+              }
+              
+              console.log("✅ Adding new user to roomData:", user.userName);
+              return {
+                ...prev,
+                roomUsers: [...(prev.roomUsers || []), user],
+              };
+            });
+            // Update username map for quick lookup
+            setUidToUserNameMap((prev) => new Map(prev).set(user.roomUserId.toString(), user.userName));
           },
           onUserLeft: (user) => {
             console.log("👋 User left room:", user);
@@ -255,20 +293,6 @@ export default function VideoCallRoom({
             "These should come from backend API response (joinData.agoraTokens).\n" +
             "Check parent component props passing."
           );
-        }
-        
-        // ⏳ Wait for SignalR UserJoined event to get roomUserId
-        console.log("⏳ Waiting for roomUserId from SignalR...");
-        let waitTime = 0;
-        while (!currentRoomUserId && waitTime < 3000) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-          waitTime += 100;
-        }
-
-        if (!currentRoomUserId) {
-          console.warn("⚠️ No roomUserId received after 3s, using uid from backend");
-        } else {
-          console.log(`✅ Got roomUserId: ${currentRoomUserId}`);
         }
         
         // DEBUG: Log all props
