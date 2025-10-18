@@ -33,8 +33,12 @@ class SignalRService {
       return;
     }
 
+    // Remove /api suffix from apiUrl for SignalR hub connection
+    // SignalR hubs are typically at the root level, not under /api
+    const baseUrl = apiUrl.replace(/\/api\/?$/, '');
+
     this.connection = new signalR.HubConnectionBuilder()
-      .withUrl(`${apiUrl}/hubs/studyroom`, {
+      .withUrl(`${baseUrl}/hubs/studyroom`, {
         accessTokenFactory: () => accessToken,
         // Remove skipNegotiation to allow fallback transports
         // skipNegotiation: true,
@@ -56,12 +60,12 @@ class SignalRService {
 
     try {
       await this.connection.start();
-      console.log("✅ SignalR Connected to:", `${apiUrl}/hubs/studyroom`);
+      console.log("✅ SignalR Connected to:", `${baseUrl}/hubs/studyroom`);
       this.handlers.onConnected?.();
     } catch (error) {
       console.error("❌ SignalR Connection Error:", error);
-      console.error("   URL:", `${apiUrl}/hubs/studyroom`);
-      console.error("   Make sure backend is running on:", apiUrl);
+      console.error("   URL:", `${baseUrl}/hubs/studyroom`);
+      console.error("   Make sure backend is running on:", baseUrl);
       this.handlers.onError?.(error as Error);
       throw error;
     }
