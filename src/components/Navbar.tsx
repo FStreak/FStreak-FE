@@ -1,14 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { Flame, Home, BookOpen, Users2, User, FileText } from "lucide-react";
-import { usePathname } from "next/navigation";
+import { Flame, Home, BookOpen, Users2, User, FileText, CreditCard, LogOut } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useTokenInfoStorage } from "@/store/authStore";
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { token, clear } = useTokenInfoStorage();
 
   const isActive = (path: string) => pathname === path;
+
+  const handleLogout = () => {
+    clear();
+    router.push("/");
+  };
 
   return (
     <nav className="w-full flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm">
@@ -67,6 +75,18 @@ export default function Navbar() {
           </Link>
 
           <Link
+            href="/plans"
+            className={`flex items-center gap-1.5 transition-colors ${
+              isActive("/plans") ? "text-orange-500" : "hover:text-orange-500"
+            }`}
+          >
+            <CreditCard className="w-4 h-4" />
+            Plans
+          </Link>
+
+        
+
+          <Link
             href="/profile"
             className={`flex items-center gap-1.5 transition-colors ${
               isActive("/profile") ? "text-orange-500" : "hover:text-orange-500"
@@ -80,13 +100,23 @@ export default function Navbar() {
         {/* Theme Toggle */}
         <ThemeToggle />
 
-        {/* 🔐 Login Button */}
-        <Link
-          href="/login"
-          className="px-4 py-2 rounded-lg text-white font-medium text-base bg-gradient-to-r from-orange-500 to-yellow-400 hover:opacity-90 transition-all shadow"
-        >
-          Login
-        </Link>
+        {/* 🔐 Login/Logout Button */}
+        {token ? (
+          <button
+            onClick={handleLogout}
+            className="px-4 py-2 rounded-lg text-white font-medium text-base bg-gradient-to-r from-red-500 to-red-600 hover:opacity-90 transition-all shadow flex items-center gap-2"
+          >
+            <LogOut className="w-4 h-4" />
+            Logout
+          </button>
+        ) : (
+          <Link
+            href="/login"
+            className="px-4 py-2 rounded-lg text-white font-medium text-base bg-gradient-to-r from-orange-500 to-yellow-400 hover:opacity-90 transition-all shadow"
+          >
+            Login
+          </Link>
+        )}
       </div>
     </nav>
   );

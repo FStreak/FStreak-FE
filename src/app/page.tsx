@@ -1,15 +1,34 @@
 // ✅ src/app/page.tsx
 "use client";
 
+import { useTokenInfoStorage } from "@/store/authStore";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import Navbar from "@/components/Navbar";
+import GuestNavbar from "@/components/GuestNavbar";
+import LandingPage from "@/components/LandingPage";
 
 export default function Page() {
+  const { token } = useTokenInfoStorage();
+  const router = useRouter();
+
+  useEffect(() => {
+    // Nếu đã đăng nhập, redirect đến dashboard
+    if (token) {
+      router.push("/dashboard");
+    }
+  }, [token, router]);
+
+  // Nếu đã đăng nhập, không hiển thị gì (đang redirect)
+  if (token) {
+    return null;
+  }
+
+  // Hiển thị landing page cho guest
   return (
     <>
-      <Navbar />
-      <main className="min-h-screen flex items-center justify-center bg-orange-50">
-        <h1 className="text-3xl font-bold">Welcome to F-Streak!</h1>
-      </main>
+      <GuestNavbar />
+      <LandingPage />
     </>
   );
 }
