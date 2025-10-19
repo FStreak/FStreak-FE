@@ -136,12 +136,12 @@ export default function ClassroomsPage() {
             {!isLoading && !error && filteredClassrooms.length > 0 && (
               <div className="mt-16 text-center p-12 rounded-2xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-orange-200 dark:border-gray-700">
                 <h2 className="text-3xl font-bold mb-4 text-gray-800 dark:text-white">
-                  Can't find what you're looking for?
+                  Can&apos;t find what you&apos;re looking for?
                 </h2>
                 <p className="text-gray-600 dark:text-gray-300 mb-6">
                   Upgrade to Pro or Elite to create your own private study rooms!
                 </p>
-                <Link href="/membership">
+                <Link href="/plans">
                   <button className="px-6 py-3 bg-gradient-to-r from-orange-500 to-yellow-400 text-white font-medium rounded-lg hover:opacity-90 transition shadow-lg">
                     View Membership Plans
                   </button>

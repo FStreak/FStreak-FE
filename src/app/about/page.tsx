@@ -15,7 +15,7 @@ export default function AboutPage() {
               About <span className="text-orange-500">F-Streak</span>
             </h1>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-              We're on a mission to make learning consistent, engaging, and social. 
+              We&apos;re on a mission to make learning consistent, engaging, and social. 
               Join thousands of students who have transformed their study habits with F-Streak.
             </p>
           </div>
@@ -32,10 +32,10 @@ export default function AboutPage() {
                 <p className="text-lg text-gray-600 dark:text-gray-400 mb-6">
                   F-Streak was born from the belief that learning should be consistent, 
                   engaging, and social. We understand that maintaining study habits can 
-                  be challenging, especially when you're doing it alone.
+                  be challenging, especially when you&apos;re doing it alone.
                 </p>
                 <p className="text-lg text-gray-600 dark:text-gray-400">
-                  That's why we created a platform that combines gamification, community 
+                  That&apos;s why we created a platform that combines gamification, community 
                   support, and personalized learning paths to help students build lasting 
                   study habits and achieve their academic goals.
                 </p>
@@ -44,7 +44,7 @@ export default function AboutPage() {
                 <Flame className="w-24 h-24 text-white mx-auto mb-4" />
                 <h3 className="text-2xl font-bold text-white mb-4">Keep the Fire Burning</h3>
                 <p className="text-white">
-                  Every day you study is a day you're building your future. 
+                  Every day you study is a day you&apos;re building your future. 
                   Keep the streak alive!
                 </p>
               </div>
@@ -160,3 +160,4 @@ export default function AboutPage() {
     </>
   );
 }
+

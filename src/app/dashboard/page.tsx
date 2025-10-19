@@ -27,7 +27,7 @@ export default function DashboardPage() {
                   <div className="w-3 h-3 bg-white rounded-full"></div>
                   <div className="w-3 h-3 bg-white rounded-full"></div>
                 </div>
-                <p className="text-lg">Keep the chain unbroken! You're doing great!</p>
+                <p className="text-lg">Keep the chain unbroken! You&apos;re doing great!</p>
               </div>
               <div className="text-center">
                 <div className="w-32 h-32 bg-white rounded-full flex items-center justify-center mb-4">

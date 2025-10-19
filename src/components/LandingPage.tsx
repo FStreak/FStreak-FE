@@ -58,7 +58,7 @@ export default function LandingPage() {
                 Choose Your Skill
               </h3>
               <p className="text-gray-600 dark:text-gray-400">
-                Select from a wide range of subjects and topics you're passionate about learning.
+                Select from a wide range of subjects and topics you&apos;re passionate about learning.
               </p>
               <Heart className="w-6 h-6 text-orange-500 absolute top-4 right-4" />
             </div>
@@ -159,7 +159,7 @@ export default function LandingPage() {
               </div>
               <h4 className="font-bold text-gray-900 dark:text-white mb-2">Alex P</h4>
               <p className="text-gray-600 dark:text-gray-400 text-sm">
-                "F-Streak has completely changed how I approach learning. The gamification keeps me motivated, and I love seeing my streak grow!"
+                &quot;F-Streak has completely changed how I approach learning. The gamification keeps me motivated, and I love seeing my streak grow!&quot;
               </p>
             </div>
 
@@ -169,7 +169,7 @@ export default function LandingPage() {
               </div>
               <h4 className="font-bold text-gray-900 dark:text-white mb-2">Sarah L</h4>
               <p className="text-gray-600 dark:text-gray-400 text-sm">
-                "I use to struggle with consistency, but F-Streak's daily reminders and engaging content make it so easy to stay on track. Highly recommend!"
+                &quot;I use to struggle with consistency, but F-Streak&apos;s daily reminders and engaging content make it so easy to stay on track. Highly recommend!&quot;
               </p>
             </div>
 
@@ -179,7 +179,7 @@ export default function LandingPage() {
               </div>
               <h4 className="font-bold text-gray-900 dark:text-white mb-2">Rine L</h4>
               <p className="text-gray-600 dark:text-gray-400 text-sm">
-                "This website is well-designed and provides useful materials that support effective learning."
+                &quot;This website is well-designed and provides useful materials that support effective learning.&quot;
               </p>
             </div>
 
@@ -189,7 +189,7 @@ export default function LandingPage() {
               </div>
               <h4 className="font-bold text-gray-900 dark:text-white mb-2">Mike R</h4>
               <p className="text-gray-600 dark:text-gray-400 text-sm">
-                "The community features are fantastic! Learning with friends and challenging each other has made the process to much more fun and effective."
+                &quot;The community features are fantastic! Learning with friends and challenging each other has made the process to much more fun and effective.&quot;
               </p>
             </div>
           </div>
@@ -247,3 +247,4 @@ export default function LandingPage() {
     </div>
   );
 }
+
