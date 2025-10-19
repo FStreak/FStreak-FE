@@ -1,7 +1,7 @@
 "use client";
 
+import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import Navbar from "@/components/Navbar";
@@ -14,12 +14,10 @@ interface Plan {
   features: string[];
 }
 
-export default function Payment() {
+function PaymentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const planId = searchParams.get('planId');
-  
-  const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
 
   // Mock plan data - in real app, fetch based on planId
   const plans: Record<string, Plan> = {
@@ -63,7 +61,6 @@ export default function Payment() {
   const selectedPlan = planId ? plans[planId] : plans["2"]; // Default to Premium if no planId
 
   const handlePaymentMethod = (method: string) => {
-    setSelectedMethod(method);
     // Navigate to QR code page with payment method
     router.push(`/payment/qr-code?method=${method}&planId=${planId}`);
   };
@@ -170,3 +167,20 @@ export default function Payment() {
   );
 }
 
+export default function Payment() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <Navbar />
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+            <p className="text-gray-600 dark:text-gray-400">Đang tải...</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <PaymentContent />
+    </Suspense>
+  );
+}

@@ -4,7 +4,6 @@
 import { useTokenInfoStorage } from "@/store/authStore";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import Navbar from "@/components/Navbar";
 import GuestNavbar from "@/components/GuestNavbar";
 import LandingPage from "@/components/LandingPage";
 

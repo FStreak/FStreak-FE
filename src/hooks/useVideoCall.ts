@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { agoraService, type AgoraConfig, type RemoteUser } from "../services/agoraService";
 import { signalRService } from "../services/signalRService";
 import { privateApiService } from "../services/ApiPrivate";
-import type { Participant } from "../model/studyRoom/studyRoomTypes";
 import type { ICameraVideoTrack, IMicrophoneAudioTrack } from "agora-rtc-sdk-ng";
 
 interface UseVideoCallOptions {
