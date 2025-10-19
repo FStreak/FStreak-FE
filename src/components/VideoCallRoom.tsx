@@ -1,14 +1,68 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useVideoCall } from "@/hooks/useVideoCall";
 import { signalRService } from "@/services/signalRService";
 import { privateApiService } from "@/services/ApiPrivate";
 import { useTokenInfoStorage } from "@/store/authStore";
 import type { StudyRoomDto, MediaStatusUpdate, ScreenSharingStatusUpdate } from "@/model/studyRoom/studyRoomTypes";
-import { Video, VideoOff, Mic, MicOff, Monitor, MonitorOff, Phone, PhoneOff, MessageCircle, Users } from "lucide-react";
+import { Video, VideoOff, Mic, MicOff, Monitor, MonitorOff, PhoneOff, MessageCircle, Users } from "lucide-react";
 import ChatBox from "./ChatBox";
 import ParticipantsPanel from "./ParticipantsPanel";
+import { ThemeToggle } from "./theme-toggle";
+import type { RemoteUser } from "@/services/agoraService";
+
+// Remote Video Card Component
+function RemoteVideoCard({ 
+  user, 
+  userName 
+}: { 
+  user: RemoteUser; 
+  userName?: string;
+}) {
+  const videoRef = useRef<HTMLDivElement>(null);
+  const displayName = userName || `User ${user.uid}`;
+
+  useEffect(() => {
+    if (videoRef.current && user.videoTrack) {
+      console.log(`🎬 Playing video for user ${user.uid}`);
+      user.videoTrack.play(videoRef.current);
+    }
+
+    // No cleanup needed - track.stop() is handled by agoraService
+  }, [user.videoTrack, user.uid]);
+
+  return (
+    <div className="relative aspect-video bg-muted/50 flex items-center justify-center rounded-lg overflow-hidden border border-border">
+      {user.videoTrack ? (
+        <div
+          ref={videoRef}
+          className="w-full h-full"
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
+          <div className="text-center">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2">
+              <span className="text-2xl">👤</span>
+            </div>
+            <p className="text-sm text-muted-foreground">{displayName}</p>
+            {user.hasVideo === false && (
+              <p className="text-xs text-muted-foreground mt-1">📹 Camera off</p>
+            )}
+          </div>
+        </div>
+      )}
+      <div className="absolute bottom-4 left-4 bg-black/60 text-white px-3 py-1 rounded-full text-sm">
+        {displayName}
+      </div>
+      {user.audioTrack && (
+        <div className="absolute top-4 right-4 bg-green-500 rounded-full p-1.5">
+          <Mic className="w-4 h-4 text-white" />
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface VideoCallRoomProps {
   roomId: number;
@@ -35,8 +89,26 @@ export default function VideoCallRoom({
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
   const [currentRoomUserId, setCurrentRoomUserId] = useState<number | null>(null); // 🆕 Store roomUserId
+  const [uidToUserNameMap, setUidToUserNameMap] = useState<Map<string, string>>(new Map()); // 🆕 Map Agora uid to userName
   const hasInitializedRef = useRef(false);
+  const isCleaningUpRef = useRef(false); // 🆕 Track cleanup to prevent multiple calls
   const localVideoRef = useRef<HTMLDivElement>(null);
+  
+  // 🆕 Get user info from JWT token
+  const getUserInfoFromToken = () => {
+    const token = useTokenInfoStorage.getState().token;
+    if (!token) return { userId: "", userName: "Unknown" };
+    
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return {
+        userId: payload.sub || payload.userId || "",
+        userName: payload.name || payload.username || payload.unique_name || "Unknown"
+      };
+    } catch {
+      return { userId: "", userName: "Unknown" };
+    }
+  };
 
   const {
     isConnected,
@@ -45,7 +117,6 @@ export default function VideoCallRoom({
     isScreenSharing,
     remoteUsers,
     localVideoTrack,
-    localAudioTrack,
     joinVideoCall,
     leaveVideoCall,
     toggleCamera,
@@ -56,9 +127,55 @@ export default function VideoCallRoom({
     roomId,
     onError: (err) => {
       console.error("Video call error:", err);
-      setError(err.message);
+      const errorMessage = err.message;
+      
+      // Provide user-friendly error messages
+      if (errorMessage.includes("NOT_READABLE") || errorMessage.includes("Could not start video source")) {
+        setError(
+          "Unable to access camera/microphone.\n\n" +
+          "Possible solutions:\n" +
+          "• Close other tabs or applications using your camera\n" +
+          "• Check browser permissions for camera/microphone\n" +
+          "• Try refreshing the page\n" +
+          "• Restart your browser"
+        );
+      } else if (errorMessage.includes("permission")) {
+        setError(
+          "Camera/microphone permission denied.\n\n" +
+          "Please allow access in your browser settings and refresh the page."
+        );
+      } else {
+        setError(errorMessage);
+      }
     },
   });
+
+  // Helper function to get username from uid
+  const getUserName = useCallback((uid: string | number): string | undefined => {
+    const uidStr = uid.toString();
+    const uidNum = typeof uid === 'number' ? uid : parseInt(uid, 10);
+    
+    // First, check the Map (fastest)
+    const mappedName = uidToUserNameMap.get(uidStr);
+    if (mappedName) {
+      return mappedName;
+    }
+    
+    if (!roomData?.roomUsers) {
+      return undefined;
+    }
+    
+    // Try to find by roomUserId (this is the Agora UID!)
+    const userByRoomUserId = roomData.roomUsers.find(u => u.roomUserId === uidNum);
+    
+    if (userByRoomUserId) {
+      // Cache it in the map for faster future lookups
+      setUidToUserNameMap(prev => new Map(prev).set(uidStr, userByRoomUserId.userName));
+      return userByRoomUserId.userName;
+    }
+    
+    return undefined;
+  }, [roomData, uidToUserNameMap]);
 
   // Initialize SignalR and Agora video call
   useEffect(() => {
@@ -94,20 +211,75 @@ export default function VideoCallRoom({
         setIsSignalRConnected(true);
         console.log("✅ SignalR connected");
 
-        // 2. Join room via SignalR
+        // 2. Fetch room data to get user names
+        console.log("📋 Fetching room data for usernames...");
+        const roomDataResponse = await privateApiService.getRoomById(roomId);
+        setRoomData(roomDataResponse);
+        console.log("✅ Room data loaded:", roomDataResponse.roomUsers?.length, "users");
+        
+        // Debug: Log roomUserId and userId comparison
+        if (roomDataResponse?.roomUsers) {
+          console.log("🔍 Room users detailed info:");
+          roomDataResponse.roomUsers.forEach(user => {
+            console.log(`  👤 ${user.userName}:`);
+            console.log(`     roomUserId: ${user.roomUserId}`);
+            console.log(`     userId: ${user.userId}`);
+          });
+          console.log(`🔍 Current Agora UID from props: ${uid}`);
+        }
+
+        // 3. Join room via SignalR
         console.log("🚪 About to join SignalR room:", roomId);
         await signalRService.joinRoom(roomId);
         console.log("✅ Joined SignalR room");
 
-        // 3. Setup SignalR event handlers
+        // 3.5. Set current user's roomUserId immediately from props (don't wait for SignalR)
+        // Backend sends uid (roomUserId) in the join response
+        if (uid !== null && uid !== undefined) {
+          const parsedUid = typeof uid === 'string' ? parseInt(uid, 10) : uid;
+          if (!isNaN(parsedUid)) {
+            setCurrentRoomUserId(parsedUid);
+            console.log("✅ Set current user roomUserId from backend:", parsedUid);
+          }
+        }
+
+        // 4. Setup SignalR event handlers
         signalRService.on({
           onUserJoined: (user) => {
-            console.log("👋 User joined room:", user);
-            // 🆕 Save current user's roomUserId for Agora
-            if (user.roomUserId) {
-              setCurrentRoomUserId(user.roomUserId);
-              console.log("✅ Saved roomUserId for Agora:", user.roomUserId);
-            }
+            console.log("� SignalR onUserJoined triggered:", {
+              userName: user.userName,
+              roomUserId: user.roomUserId,
+              userId: user.userId,
+            });
+            console.log("�👋 User joined room:", user);
+            // Update roomData with new user (avoid duplicates)
+            setRoomData((prev) => {
+              console.log("📊 Current roomData before add:", {
+                hasRoomData: !!prev,
+                currentUsersCount: prev?.roomUsers?.length || 0,
+                currentUsers: prev?.roomUsers?.map(u => ({ name: u.userName, roomUserId: u.roomUserId })),
+              });
+              
+              if (!prev) return prev;
+              
+              // Check if user already exists
+              const existingUser = prev.roomUsers?.find(u => 
+                u.userId === user.userId || u.roomUserId === user.roomUserId
+              );
+              
+              if (existingUser) {
+                console.log("⚠️ User already in roomData, skipping add:", user.userName);
+                return prev;
+              }
+              
+              console.log("✅ Adding new user to roomData:", user.userName);
+              return {
+                ...prev,
+                roomUsers: [...(prev.roomUsers || []), user],
+              };
+            });
+            // Update username map for quick lookup
+            setUidToUserNameMap((prev) => new Map(prev).set(user.roomUserId.toString(), user.userName));
           },
           onUserLeft: (user) => {
             console.log("👋 User left room:", user);
@@ -149,20 +321,6 @@ export default function VideoCallRoom({
           );
         }
         
-        // ⏳ Wait for SignalR UserJoined event to get roomUserId
-        console.log("⏳ Waiting for roomUserId from SignalR...");
-        let waitTime = 0;
-        while (!currentRoomUserId && waitTime < 3000) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-          waitTime += 100;
-        }
-
-        if (!currentRoomUserId) {
-          console.warn("⚠️ No roomUserId received after 3s, using uid from backend");
-        } else {
-          console.log(`✅ Got roomUserId: ${currentRoomUserId}`);
-        }
-        
         // DEBUG: Log all props
         console.log("🔍 Props received in VideoCallRoom:", {
           agoraAppId,
@@ -172,23 +330,31 @@ export default function VideoCallRoom({
           roomUserId: currentRoomUserId,
         });
         
-        // ✅ Use UID from backend response (which should match the token)
-        // Backend returns uid as "0", convert to number for Agora
-        let agoraUid: string | number | null = 0;
+        // ✅ Use roomUserId as Agora UID (from SignalR UserJoined event)
+        // If not available, fallback to uid from backend
+        let agoraUid: string | number = 0;
         
-        if (uid !== null && uid !== undefined) {
-          // Try to parse as number
+        if (currentRoomUserId !== null && currentRoomUserId !== undefined) {
+          // Use roomUserId from SignalR (e.g., 101)
+          agoraUid = Number(currentRoomUserId);
+          console.log("✅ Using roomUserId as Agora UID:", agoraUid);
+        } else if (uid !== null && uid !== undefined) {
+          // Fallback to uid from backend
           const parsedUid = typeof uid === 'string' ? parseInt(uid, 10) : uid;
           if (!isNaN(parsedUid)) {
             agoraUid = parsedUid;
           } else {
-            agoraUid = uid; // Keep as string if not a valid number
+            agoraUid = 0; // Default to 0 if parsing fails
           }
+          console.log("⚠️ Fallback: Using backend uid as Agora UID:", agoraUid);
+        } else {
+          console.warn("⚠️ No valid UID available, using 0");
         }
         
         console.log("🔍 Final UID for Agora:", {
-          original: uid,
-          parsed: agoraUid,
+          roomUserId: currentRoomUserId,
+          backendUid: uid,
+          finalAgoraUid: agoraUid,
           type: typeof agoraUid,
         });
         
@@ -206,7 +372,26 @@ export default function VideoCallRoom({
 
       } catch (err) {
         console.error("❌ Initialization error:", err);
-        setError(err instanceof Error ? err.message : "Failed to initialize");
+        const errorMessage = err instanceof Error ? err.message : "Failed to initialize";
+        
+        // Provide user-friendly error messages
+        if (errorMessage.includes("NOT_READABLE") || errorMessage.includes("Could not start video source")) {
+          setError(
+            "Unable to access camera/microphone.\n\n" +
+            "Possible solutions:\n" +
+            "• Close other tabs or applications using your camera\n" +
+            "• Check browser permissions for camera/microphone\n" +
+            "• Try refreshing the page\n" +
+            "• Restart your browser"
+          );
+        } else if (errorMessage.includes("permission")) {
+          setError(
+            "Camera/microphone permission denied.\n\n" +
+            "Please allow access in your browser settings and refresh the page."
+          );
+        } else {
+          setError(errorMessage);
+        }
       }
     };
 
@@ -214,11 +399,16 @@ export default function VideoCallRoom({
 
     return () => {
       console.log("🧹 Cleaning up VideoCallRoom...");
-      if (isConnected) {
-        leaveVideoCall();
+      // 🔥 Only cleanup once when component actually unmounts
+      if (!isCleaningUpRef.current) {
+        isCleaningUpRef.current = true;
+        if (isConnected) {
+          leaveVideoCall();
+        }
+        signalRService.leaveRoom(roomId);
       }
-      signalRService.leaveRoom(roomId);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array - only run once on mount
 
   // Play local video when track is available
@@ -227,6 +417,18 @@ export default function VideoCallRoom({
       localVideoTrack.play(localVideoRef.current);
     }
   }, [localVideoTrack]);
+
+  // Debug: Log remote users changes
+  useEffect(() => {
+    console.log("👥 Remote users updated:", {
+      count: remoteUsers.length,
+      users: remoteUsers.map(u => ({
+        uid: u.uid,
+        hasVideo: !!u.videoTrack,
+        hasAudio: !!u.audioTrack
+      }))
+    });
+  }, [remoteUsers]);
 
   if (error) {
     const isAgoraConfigError = error.includes("INVALID AGORA APP ID") || error.includes("invalid vendor key");
@@ -314,195 +516,200 @@ export default function VideoCallRoom({
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900">
-      {/* Header */}
-      <header className="bg-gray-800 text-white p-4 border-b border-gray-700">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold">{roomName}</h1>
-            <p className="text-sm text-gray-400">Room ID: {roomId}</p>
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header - Modern UI from FStreak-FE-Temp */}
+      <div className="bg-card border-b border-border px-6 py-4">
+        <div className="flex items-center justify-between max-w-7xl mx-auto">
+          <div className="flex items-center gap-3">
+            <div className="text-3xl">📚</div>
+            <div>
+              <h1 className="text-xl font-bold">{roomName}</h1>
+              <p className="text-sm text-muted-foreground">Room #{roomId}</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-400">
-              {remoteUsers.length + 1} participants
-            </span>
-            {isSignalRConnected && (
-              <span className="w-2 h-2 bg-green-500 rounded-full" title="Connected"></span>
-            )}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Users className="w-4 h-4" />
+              <span>{remoteUsers.length + 1} members online</span>
+              {isSignalRConnected && (
+                <span className="ml-2 w-2 h-2 bg-green-500 rounded-full" title="Connected" />
+              )}
+            </div>
+            {/* Theme Toggle */}
+            <ThemeToggle />
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* Video Grid */}
-      <main className="flex-1 p-4 overflow-hidden">
-        <div className={`grid gap-4 h-full ${
-          remoteUsers.length === 0 ? 'grid-cols-1' :
-          remoteUsers.length === 1 ? 'grid-cols-2' :
-          remoteUsers.length <= 4 ? 'grid-cols-2 grid-rows-2' :
-          'grid-cols-3 grid-rows-3'
-        }`}>
-          {/* Local Video */}
-          <div className="relative bg-gray-800 rounded-lg overflow-hidden">
-            <div
-              ref={localVideoRef}
-              className="w-full h-full"
-            />
-            {!isVideoOn && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
-                <VideoOff className="w-16 h-16 text-gray-400" />
+      {/* Main Content - Centered Layout from FStreak-FE-Temp */}
+      <main className="flex-1 flex items-center justify-center p-6">
+        <div className="w-full max-w-6xl">
+          {/* Video Grid - Card style from FStreak-FE-Temp */}
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            {/* Local Video - Main Card */}
+            <div className={`relative aspect-video bg-muted flex items-center justify-center rounded-lg overflow-hidden border border-border ${
+              remoteUsers.length === 0 ? 'col-span-2 lg:col-span-3' : 'col-span-1'
+            }`}>
+              <div
+                ref={localVideoRef}
+                className="w-full h-full"
+              />
+              {!isVideoOn && (
+                <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                  <div className="text-center">
+                    <div className="w-32 h-32 rounded-full bg-primary/20 flex items-center justify-center mb-4 mx-auto">
+                      <span className="text-5xl">👤</span>
+                    </div>
+                    <p className="text-muted-foreground">Camera is off</p>
+                    {!localVideoTrack && (
+                      <p className="text-xs text-muted-foreground/70 mt-2 max-w-xs mx-auto">
+                        Click camera button to enable
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+              <div className="absolute bottom-4 left-4 bg-black/60 text-white px-3 py-1 rounded-full text-sm">
+                You {isScreenSharing && "• Sharing"}
               </div>
-            )}
-            <div className="absolute bottom-4 left-4 bg-black/50 px-3 py-1 rounded-full text-white text-sm">
-              You {isScreenSharing && "(Sharing)"}
+              {(!isVideoOn || !isAudioOn) && (
+                <div className="absolute top-4 right-4 flex gap-2">
+                  {!isVideoOn && (
+                    <div className="bg-red-500 rounded-full p-1.5">
+                      <VideoOff className="w-4 h-4 text-white" />
+                    </div>
+                  )}
+                  {!isAudioOn && (
+                    <div className="bg-red-500 rounded-full p-1.5">
+                      <MicOff className="w-4 h-4 text-white" />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="absolute top-4 right-4 flex gap-2">
-              {!isVideoOn && <VideoOff className="w-5 h-5 text-red-500" />}
-              {!isAudioOn && <MicOff className="w-5 h-5 text-red-500" />}
+
+            {/* Remote Videos - Card style */}
+            {remoteUsers.map((user) => (
+              <RemoteVideoCard 
+                key={user.uid} 
+                user={user} 
+                userName={getUserName(user.uid)}
+              />
+            ))}
+          </div>
+          {/* Control Bar - Modern Card style from FStreak-FE-Temp */}
+          <div className="bg-card rounded-2xl p-6 shadow-lg border border-border">
+            <div className="flex items-center justify-center gap-4">
+              {!isConnected ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-primary"></div>
+                  <span>Connecting to video call...</span>
+                </div>
+              ) : (
+                <>
+                  {/* Camera Toggle */}
+                  <button
+                    onClick={toggleCamera}
+                    className={`w-14 h-14 rounded-full transition-all flex items-center justify-center ${
+                      isVideoOn
+                        ? 'bg-secondary hover:bg-secondary/80'
+                        : 'bg-destructive hover:bg-destructive/90'
+                    }`}
+                    title={isVideoOn ? 'Turn off camera' : 'Turn on camera'}
+                  >
+                    {isVideoOn ? (
+                      <Video className="w-6 h-6" />
+                    ) : (
+                      <VideoOff className="w-6 h-6" />
+                    )}
+                  </button>
+
+                  {/* Microphone Toggle */}
+                  <button
+                    onClick={toggleMicrophone}
+                    className={`w-14 h-14 rounded-full transition-all flex items-center justify-center ${
+                      isAudioOn
+                        ? 'bg-secondary hover:bg-secondary/80'
+                        : 'bg-destructive hover:bg-destructive/90'
+                    }`}
+                    title={isAudioOn ? 'Mute microphone' : 'Unmute microphone'}
+                  >
+                    {isAudioOn ? (
+                      <Mic className="w-6 h-6" />
+                    ) : (
+                      <MicOff className="w-6 h-6" />
+                    )}
+                  </button>
+
+                  {/* Screen Share Toggle */}
+                  <button
+                    onClick={isScreenSharing ? stopScreenShare : startScreenShare}
+                    className={`w-14 h-14 rounded-full transition-all flex items-center justify-center ${
+                      isScreenSharing
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                        : 'bg-secondary hover:bg-secondary/80'
+                    }`}
+                    title={isScreenSharing ? 'Stop sharing' : 'Share screen'}
+                  >
+                    {isScreenSharing ? (
+                      <MonitorOff className="w-6 h-6" />
+                    ) : (
+                      <Monitor className="w-6 h-6" />
+                    )}
+                  </button>
+
+                  {/* Leave Call */}
+                  <button
+                    onClick={() => {
+                      leaveVideoCall();
+                      onLeave();
+                    }}
+                    className="w-14 h-14 bg-destructive hover:bg-destructive/90 rounded-full transition-all flex items-center justify-center"
+                    title="Leave call"
+                  >
+                    <PhoneOff className="w-6 h-6" />
+                  </button>
+
+                  {/* Separator */}
+                  <div className="h-8 w-px bg-border mx-2" />
+
+                  {/* Chat Button */}
+                  <button
+                    onClick={() => setIsChatOpen(!isChatOpen)}
+                    className={`w-14 h-14 rounded-full transition-all flex items-center justify-center ${
+                      isChatOpen
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                        : 'bg-secondary hover:bg-secondary/80'
+                    }`}
+                    title="Toggle chat"
+                  >
+                    <MessageCircle className="w-6 h-6" />
+                  </button>
+
+                  {/* Participants Button */}
+                  <button
+                    onClick={() => setIsParticipantsOpen(!isParticipantsOpen)}
+                    className={`w-14 h-14 rounded-full transition-all flex items-center justify-center ${
+                      isParticipantsOpen
+                        ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                        : 'bg-secondary hover:bg-secondary/80'
+                    }`}
+                    title="Toggle participants"
+                  >
+                    <Users className="w-6 h-6" />
+                  </button>
+                </>
+              )}
             </div>
           </div>
-
-          {/* Remote Videos */}
-          {remoteUsers.map((user) => (
-            <div key={user.uid} className="relative bg-gray-800 rounded-lg overflow-hidden">
-              <video
-                ref={(ref) => {
-                  if (ref && user.videoTrack) {
-                    user.videoTrack.play(ref);
-                  }
-                }}
-                autoPlay
-                playsInline
-                className="w-full h-full object-cover"
-              />
-              {!user.videoTrack && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
-                  <VideoOff className="w-16 h-16 text-gray-400" />
-                </div>
-              )}
-              <div className="absolute bottom-4 left-4 bg-black/50 px-3 py-1 rounded-full text-white text-sm">
-                User {user.uid}
-              </div>
-              {user.audioTrack && (
-                <div className="absolute top-4 right-4">
-                  <Mic className="w-5 h-5 text-green-500" />
-                </div>
-              )}
-            </div>
-          ))}
         </div>
       </main>
-
-      {/* Controls */}
-      <footer className="bg-gray-800 border-t border-gray-700 p-4">
-        <div className="flex items-center justify-center gap-4">
-          {!isConnected ? (
-            <div className="flex items-center gap-2 text-gray-400">
-              <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-green-500"></div>
-              <span>Connecting to video call...</span>
-            </div>
-          ) : (
-            <>
-              {/* Camera Toggle */}
-              <button
-                onClick={toggleCamera}
-                className={`p-4 rounded-full transition-colors ${
-                  isVideoOn
-                    ? 'bg-gray-700 hover:bg-gray-600'
-                    : 'bg-red-600 hover:bg-red-700'
-                }`}
-                title={isVideoOn ? 'Turn off camera' : 'Turn on camera'}
-              >
-                {isVideoOn ? (
-                  <Video className="w-6 h-6 text-white" />
-                ) : (
-                  <VideoOff className="w-6 h-6 text-white" />
-                )}
-              </button>
-
-              {/* Microphone Toggle */}
-              <button
-                onClick={toggleMicrophone}
-                className={`p-4 rounded-full transition-colors ${
-                  isAudioOn
-                    ? 'bg-gray-700 hover:bg-gray-600'
-                    : 'bg-red-600 hover:bg-red-700'
-                }`}
-                title={isAudioOn ? 'Mute microphone' : 'Unmute microphone'}
-              >
-                {isAudioOn ? (
-                  <Mic className="w-6 h-6 text-white" />
-                ) : (
-                  <MicOff className="w-6 h-6 text-white" />
-                )}
-              </button>
-
-              {/* Screen Share Toggle */}
-              <button
-                onClick={isScreenSharing ? stopScreenShare : startScreenShare}
-                className={`p-4 rounded-full transition-colors ${
-                  isScreenSharing
-                    ? 'bg-blue-600 hover:bg-blue-700'
-                    : 'bg-gray-700 hover:bg-gray-600'
-                }`}
-                title={isScreenSharing ? 'Stop sharing' : 'Share screen'}
-              >
-                {isScreenSharing ? (
-                  <MonitorOff className="w-6 h-6 text-white" />
-                ) : (
-                  <Monitor className="w-6 h-6 text-white" />
-                )}
-              </button>
-
-              {/* Leave Call */}
-              <button
-                onClick={() => {
-                  leaveVideoCall();
-                  onLeave();
-                }}
-                className="p-4 bg-red-600 hover:bg-red-700 rounded-full transition-colors"
-                title="Leave call"
-              >
-                <PhoneOff className="w-6 h-6 text-white" />
-              </button>
-
-              {/* Separator */}
-              <div className="h-8 w-px bg-gray-600 mx-2" />
-
-              {/* Chat Button */}
-              <button
-                onClick={() => setIsChatOpen(!isChatOpen)}
-                className={`p-4 rounded-full transition-colors ${
-                  isChatOpen
-                    ? 'bg-blue-600 hover:bg-blue-700'
-                    : 'bg-gray-700 hover:bg-gray-600'
-                }`}
-                title="Toggle chat"
-              >
-                <MessageCircle className="w-6 h-6 text-white" />
-              </button>
-
-              {/* Participants Button */}
-              <button
-                onClick={() => setIsParticipantsOpen(!isParticipantsOpen)}
-                className={`p-4 rounded-full transition-colors ${
-                  isParticipantsOpen
-                    ? 'bg-purple-600 hover:bg-purple-700'
-                    : 'bg-gray-700 hover:bg-gray-600'
-                }`}
-                title="Toggle participants"
-              >
-                <Users className="w-6 h-6 text-white" />
-              </button>
-            </>
-          )}
-        </div>
-      </footer>
 
       {/* Chat Box */}
       <ChatBox
         roomId={roomId}
-        userName={useTokenInfoStorage.getState().userName || "Unknown"}
-        userId={useTokenInfoStorage.getState().userId || ""}
+        userName={getUserInfoFromToken().userName}
+        userId={getUserInfoFromToken().userId}
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
       />
@@ -510,9 +717,12 @@ export default function VideoCallRoom({
       {/* Participants Panel */}
       <ParticipantsPanel
         roomId={roomId}
-        currentUserId={useTokenInfoStorage.getState().userId || ""}
+        currentUserId={uid}
         isOpen={isParticipantsOpen}
         onClose={() => setIsParticipantsOpen(false)}
+        localVideoOn={isVideoOn}
+        localAudioOn={isAudioOn}
+        remoteUsers={remoteUsers}
       />
     </div>
   );

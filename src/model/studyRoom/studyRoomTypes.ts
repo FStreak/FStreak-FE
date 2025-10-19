@@ -55,6 +55,12 @@ export interface JoinRoomResponse {
   agoraTokens: AgoraTokenResponse | null;
 }
 
+// Join Room by Invite Code Response
+export interface JoinRoomByCodeResponse {
+  roomUser: RoomUserDto;
+  agoraTokens: AgoraTokenResponse | null;
+}
+
 // Room Message Types
 export interface RoomMessageDto {
   messageId: number;

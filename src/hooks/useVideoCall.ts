@@ -5,6 +5,7 @@ import { agoraService, type AgoraConfig, type RemoteUser } from "../services/ago
 import { signalRService } from "../services/signalRService";
 import { privateApiService } from "../services/ApiPrivate";
 import type { Participant } from "../model/studyRoom/studyRoomTypes";
+import type { ICameraVideoTrack, IMicrophoneAudioTrack } from "agora-rtc-sdk-ng";
 
 interface UseVideoCallOptions {
   roomId: number;
@@ -24,7 +25,6 @@ interface UseVideoCallReturn {
   isVideoOn: boolean;
   isAudioOn: boolean;
   isScreenSharing: boolean;
-  participants: Participant[];
   remoteUsers: RemoteUser[];
   
   // Actions
@@ -36,8 +36,8 @@ interface UseVideoCallReturn {
   stopScreenShare: () => Promise<void>;
   
   // Local tracks (for rendering)
-  localVideoTrack: any;
-  localAudioTrack: any;
+  localVideoTrack: ICameraVideoTrack | null;
+  localAudioTrack: IMicrophoneAudioTrack | null;
 }
 
 export const useVideoCall = ({ roomId, onError }: UseVideoCallOptions): UseVideoCallReturn => {
@@ -45,10 +45,9 @@ export const useVideoCall = ({ roomId, onError }: UseVideoCallOptions): UseVideo
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isAudioOn, setIsAudioOn] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const [participants, setParticipants] = useState<Participant[]>([]);
   const [remoteUsers, setRemoteUsers] = useState<RemoteUser[]>([]);
-  const [localVideoTrack, setLocalVideoTrack] = useState<any>(null);
-  const [localAudioTrack, setLocalAudioTrack] = useState<any>(null);
+  const [localVideoTrack, setLocalVideoTrack] = useState<ICameraVideoTrack | null>(null);
+  const [localAudioTrack, setLocalAudioTrack] = useState<IMicrophoneAudioTrack | null>(null);
 
   const tokenRefreshTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -87,12 +86,29 @@ export const useVideoCall = ({ roomId, onError }: UseVideoCallOptions): UseVideo
         },
         onUserUnpublished: (uid, mediaType) => {
           console.log(`Remote user unpublished ${mediaType}:`, uid);
+          // Update remote users to remove the unpublished track
+          setRemoteUsers((prev) =>
+            prev.map((u) => {
+              if (u.uid === uid) {
+                const updated = { ...u };
+                if (mediaType === "video") {
+                  updated.videoTrack = undefined;
+                  updated.hasVideo = false;
+                } else if (mediaType === "audio") {
+                  updated.audioTrack = undefined;
+                  updated.hasAudio = false;
+                }
+                return updated;
+              }
+              return u;
+            })
+          );
         },
         onTokenPrivilegeWillExpire: async () => {
           // Refresh token
           try {
             const tokenResponse = await privateApiService.refreshAgoraTokens(roomId);
-            await agoraService.renewToken(tokenResponse.data.token);
+            await agoraService.renewToken(tokenResponse.token);
             console.log("Token refreshed successfully");
           } catch (error) {
             console.error("Failed to refresh token:", error);
@@ -111,7 +127,19 @@ export const useVideoCall = ({ roomId, onError }: UseVideoCallOptions): UseVideo
       setLocalVideoTrack(videoTrack);
       setLocalAudioTrack(audioTrack);
 
-      // 5. Notify others via SignalR
+      // 5. Set initial state based on available tracks
+      setIsVideoOn(!!videoTrack && videoTrack.enabled);
+      setIsAudioOn(!!audioTrack && audioTrack.enabled);
+      console.log(`📊 Initial state - Video: ${!!videoTrack}, Audio: ${!!audioTrack}`);
+
+      // 6. Get existing remote users (users already in the channel)
+      const existingRemoteUsers = agoraService.getRemoteUsers();
+      if (existingRemoteUsers.length > 0) {
+        console.log(`👥 Setting ${existingRemoteUsers.length} existing remote users`);
+        setRemoteUsers(existingRemoteUsers);
+      }
+
+      // 7. Notify others via SignalR
       await signalRService.updateUserStatus(roomId, "joined-video");
 
       setIsConnected(true);
@@ -121,7 +149,7 @@ export const useVideoCall = ({ roomId, onError }: UseVideoCallOptions): UseVideo
       tokenRefreshTimerRef.current = setInterval(async () => {
         try {
           const tokenResponse = await privateApiService.refreshAgoraTokens(roomId);
-          await agoraService.renewToken(tokenResponse.data.token);
+          await agoraService.renewToken(tokenResponse.token);
           console.log("Token auto-refreshed");
         } catch (error) {
           console.error("Failed to auto-refresh token:", error);
@@ -177,6 +205,10 @@ export const useVideoCall = ({ roomId, onError }: UseVideoCallOptions): UseVideo
       // Notify others via SignalR
       await signalRService.updateMediaStatus(roomId, newState, isAudioOn);
 
+      // Update local video track state
+      const track = agoraService.getLocalVideoTrack();
+      setLocalVideoTrack(track);
+
       console.log(`Camera ${newState ? "on" : "off"}`);
     } catch (error) {
       console.error("Failed to toggle camera:", error);
@@ -194,6 +226,10 @@ export const useVideoCall = ({ roomId, onError }: UseVideoCallOptions): UseVideo
 
       // Notify others via SignalR
       await signalRService.updateMediaStatus(roomId, isVideoOn, newState);
+
+      // Update local audio track state
+      const track = agoraService.getLocalAudioTrack();
+      setLocalAudioTrack(track);
 
       console.log(`Microphone ${newState ? "on" : "off"}`);
     } catch (error) {
@@ -239,15 +275,19 @@ export const useVideoCall = ({ roomId, onError }: UseVideoCallOptions): UseVideo
   }, [roomId, onError]);
 
   /**
-   * Cleanup on unmount
+   * Cleanup on unmount only
+   * ⚠️ Don't add dependencies here - we only want cleanup on unmount, not on re-renders
    */
   useEffect(() => {
     return () => {
-      if (isConnected) {
-        leaveVideoCall();
+      // Only cleanup when hook is truly unmounting
+      // Using agoraService directly to avoid stale closure issues
+      if (agoraService.getClient()) {
+        console.log("🧹 useVideoCall unmounting - cleaning up Agora connection");
+        agoraService.leave().catch(console.error);
       }
     };
-  }, [isConnected, leaveVideoCall]);
+  }, []); // Empty deps - only run cleanup on unmount
 
   return {
     // State
@@ -255,7 +295,6 @@ export const useVideoCall = ({ roomId, onError }: UseVideoCallOptions): UseVideo
     isVideoOn,
     isAudioOn,
     isScreenSharing,
-    participants,
     remoteUsers,
     
     // Actions
