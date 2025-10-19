@@ -1,6 +1,6 @@
 "use client";
 
-import { Flame, Star, Trophy, Users, Bell, Target, TrendingUp } from "lucide-react";
+import { Flame, Star, Trophy, Users, Bell } from "lucide-react";
 import Navbar from "@/components/Navbar";
 
 export default function DashboardPage() {

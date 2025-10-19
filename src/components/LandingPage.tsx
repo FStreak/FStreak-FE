@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Flame, Star, Heart, Users, Trophy, Target, Zap } from "lucide-react";
+import { Flame, Star, Heart } from "lucide-react";
 
 export default function LandingPage() {
   return (

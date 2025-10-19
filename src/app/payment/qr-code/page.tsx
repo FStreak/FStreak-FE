@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -7,7 +8,7 @@ import Navbar from "@/components/Navbar";
 import { ArrowLeft, Copy, CheckCircle } from "lucide-react";
 import { useState } from "react";
 
-export default function QRCodePayment() {
+function QRCodePaymentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const method = searchParams.get('method');
@@ -172,6 +173,21 @@ export default function QRCodePayment() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function QRCodePayment() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Đang tải...</p>
+        </div>
+      </div>
+    }>
+      <QRCodePaymentContent />
+    </Suspense>
   );
 }
 
