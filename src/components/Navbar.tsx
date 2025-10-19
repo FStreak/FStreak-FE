@@ -4,6 +4,10 @@ import Link from "next/link";
 import { Flame, Home, BookOpen, Users2, User, FileText, CreditCard, LogOut } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Bell } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { privateApiService } from "@/services/ApiPrivate";
+import type { ReminderEntry } from "@/model/reminder/reminderTypes";
 import { useTokenInfoStorage } from "@/store/authStore";
 
 export default function Navbar() {
@@ -17,6 +21,34 @@ export default function Navbar() {
     clear();
     router.push("/");
   };
+
+  // Notifications
+  const [reminders, setReminders] = useState<ReminderEntry[]>([]);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const res = await privateApiService.getReminders();
+        if (mounted) setReminders(res.filter(r => r.enabled));
+      } catch {
+        // ignore
+      }
+    };
+    load();
+    return () => { mounted = false };
+  }, []);
+
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (!ref.current) return;
+      if (!ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('click', onDoc);
+    return () => document.removeEventListener('click', onDoc);
+  }, []);
 
   return (
     <nav className="w-full flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm">
@@ -45,13 +77,13 @@ export default function Navbar() {
           </Link>
 
           <Link
-            href="/feed"
+            href="/lessons"
             className={`flex items-center gap-1.5 transition-colors ${
-              isActive("/feed") ? "text-orange-500" : "hover:text-orange-500"
+              isActive("/lessons") ? "text-orange-500" : "hover:text-orange-500"
             }`}
           >
             <BookOpen className="w-4 h-4" />
-            Feed
+            Lessons
           </Link>
 
           <Link
@@ -99,6 +131,44 @@ export default function Navbar() {
 
         {/* Theme Toggle */}
         <ThemeToggle />
+
+        {/* Notifications Bell */}
+        <div className="relative" ref={ref}>
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+            aria-label="Notifications"
+          >
+            <Bell className="w-5 h-5" />
+            {reminders.length > 0 && (
+              <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] bg-red-500 text-white rounded-full">{reminders.length}</span>
+            )}
+          </button>
+
+          {open && (
+            <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-900 border rounded shadow-lg z-50">
+              <div className="p-3 border-b text-sm font-medium">Notifications</div>
+              <div className="max-h-64 overflow-auto">
+                {reminders.length === 0 ? (
+                  <div className="p-3 text-sm text-muted-foreground">No upcoming reminders</div>
+                ) : (
+                  reminders.slice(0, 8).map(r => (
+                    <div key={r.id} className="p-3 flex items-start gap-3 border-b last:border-b-0">
+                      <div className="w-2 h-2 mt-1 rounded-full bg-orange-400" />
+                      <div className="flex-1">
+                        <div className="font-medium text-sm">{r.title}</div>
+                        <div className="text-xs text-muted-foreground">{r.schedule || r.detail}</div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="p-2 text-center border-t">
+                <a href="/reminders" className="text-sm text-orange-600">Manage reminders</a>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* 🔐 Login/Logout Button */}
         {token ? (

@@ -33,6 +33,20 @@ export interface RegisterType {
   confirmPassword: string;
 }
 
+/** User profile returned from /users/me */
+export interface UserProfile {
+  id: string;
+  userName: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  createdAt: string;
+  updatedAt: string | null;
+  isDeleted: boolean;
+  currentStreak: number;
+  longestStreak: number;
+}
+
 /** Dữ liệu trả về sau khi đăng ký */
 export interface RegisterResponse {
   succeeded: boolean;
