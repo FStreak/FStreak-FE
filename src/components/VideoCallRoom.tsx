@@ -6,7 +6,7 @@ import { signalRService } from "@/services/signalRService";
 import { privateApiService } from "@/services/ApiPrivate";
 import { useTokenInfoStorage } from "@/store/authStore";
 import type { StudyRoomDto, MediaStatusUpdate, ScreenSharingStatusUpdate } from "@/model/studyRoom/studyRoomTypes";
-import { Video, VideoOff, Mic, MicOff, Monitor, MonitorOff, Phone, PhoneOff, MessageCircle, Users } from "lucide-react";
+import { Video, VideoOff, Mic, MicOff, Monitor, MonitorOff, PhoneOff, MessageCircle, Users } from "lucide-react";
 import ChatBox from "./ChatBox";
 import ParticipantsPanel from "./ParticipantsPanel";
 import { ThemeToggle } from "./theme-toggle";
@@ -117,7 +117,6 @@ export default function VideoCallRoom({
     isScreenSharing,
     remoteUsers,
     localVideoTrack,
-    localAudioTrack,
     joinVideoCall,
     leaveVideoCall,
     toggleCamera,
@@ -150,6 +149,33 @@ export default function VideoCallRoom({
       }
     },
   });
+
+  // Helper function to get username from uid
+  const getUserName = useCallback((uid: string | number): string | undefined => {
+    const uidStr = uid.toString();
+    const uidNum = typeof uid === 'number' ? uid : parseInt(uid, 10);
+    
+    // First, check the Map (fastest)
+    const mappedName = uidToUserNameMap.get(uidStr);
+    if (mappedName) {
+      return mappedName;
+    }
+    
+    if (!roomData?.roomUsers) {
+      return undefined;
+    }
+    
+    // Try to find by roomUserId (this is the Agora UID!)
+    const userByRoomUserId = roomData.roomUsers.find(u => u.roomUserId === uidNum);
+    
+    if (userByRoomUserId) {
+      // Cache it in the map for faster future lookups
+      setUidToUserNameMap(prev => new Map(prev).set(uidStr, userByRoomUserId.userName));
+      return userByRoomUserId.userName;
+    }
+    
+    return undefined;
+  }, [roomData, uidToUserNameMap]);
 
   // Initialize SignalR and Agora video call
   useEffect(() => {
@@ -382,6 +408,7 @@ export default function VideoCallRoom({
         signalRService.leaveRoom(roomId);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array - only run once on mount
 
   // Play local video when track is available
@@ -487,58 +514,6 @@ export default function VideoCallRoom({
       </div>
     );
   }
-
-  // Helper function to get username from uid
-  const getUserName = useCallback((uid: string | number): string | undefined => {
-    const uidStr = uid.toString();
-    const uidNum = typeof uid === 'number' ? uid : parseInt(uid, 10);
-    
-    // First, check the Map (fastest)
-    const mappedName = uidToUserNameMap.get(uidStr);
-    if (mappedName) {
-      console.log("✅ Found username in map:", uidStr, "→", mappedName);
-      return mappedName;
-    }
-    
-    console.log("🔍 Looking up username for uid:", uidNum);
-    console.log("🔍 Room data available:", !!roomData);
-    console.log("🔍 Room users count:", roomData?.roomUsers?.length);
-    
-    if (!roomData?.roomUsers) {
-      console.log("⚠️ Room data not loaded yet");
-      return undefined;
-    }
-    
-    // 🆕 Try to find by roomUserId (this might be the Agora UID!)
-    const userByRoomUserId = roomData.roomUsers.find(u => {
-      const matches = u.roomUserId === uidNum;
-      if (matches) {
-        console.log("✅ Found match by roomUserId:", u.roomUserId, "→", u.userName);
-      }
-      return matches;
-    });
-    
-    if (userByRoomUserId) {
-      // Cache it in the map for faster future lookups
-      setUidToUserNameMap(prev => new Map(prev).set(uidStr, userByRoomUserId.userName));
-      return userByRoomUserId.userName;
-    }
-    
-    // Fallback: Try to find by userId (won't work with current setup, but keep for future)
-    const userByUserId = roomData.roomUsers.find(u => {
-      const matches = u.userId.toString() === uidStr;
-      if (matches) {
-        console.log("✅ Found match by userId:", u.userId, "→", u.userName);
-      }
-      return matches;
-    });
-    
-    if (!userByRoomUserId && !userByUserId) {
-      console.log("❌ No user found for uid:", uidNum);
-    }
-    
-    return userByUserId?.userName;
-  }, [roomData, uidToUserNameMap]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

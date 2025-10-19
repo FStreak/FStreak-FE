@@ -1,6 +1,5 @@
 import { apiService } from "./apiService";
 import { wrapResponse } from "./ApiServiceConfig";
-import type { ApiResponse } from "../model/apiType/apiType";
 import type {
   StudyRoomDto,
   CreateRoomDto,

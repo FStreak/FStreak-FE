@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { signalRService } from "@/services/signalRService";
-import { MessageCircle, Send, Smile } from "lucide-react";
+import { MessageCircle, Send } from "lucide-react";
 import type { RoomMessageDto } from "@/model/studyRoom/studyRoomTypes";
 
 interface ChatBoxProps {
@@ -39,11 +39,6 @@ export default function ChatBox({ roomId, userName, userId, isOpen, onClose }: C
     // Listen for messages
     const handleNewMessage = (message: RoomMessageDto) => {
       console.log("💬 New message received:", message);
-      setMessages((prev) => [...prev, message]);
-    };
-
-    const handleNewEmoji = (message: RoomMessageDto) => {
-      console.log("😊 New emoji received:", message);
       setMessages((prev) => [...prev, message]);
     };
 

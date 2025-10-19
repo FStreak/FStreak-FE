@@ -5,6 +5,7 @@ import { agoraService, type AgoraConfig, type RemoteUser } from "../services/ago
 import { signalRService } from "../services/signalRService";
 import { privateApiService } from "../services/ApiPrivate";
 import type { Participant } from "../model/studyRoom/studyRoomTypes";
+import type { ICameraVideoTrack, IMicrophoneAudioTrack } from "agora-rtc-sdk-ng";
 
 interface UseVideoCallOptions {
   roomId: number;
@@ -24,7 +25,6 @@ interface UseVideoCallReturn {
   isVideoOn: boolean;
   isAudioOn: boolean;
   isScreenSharing: boolean;
-  participants: Participant[];
   remoteUsers: RemoteUser[];
   
   // Actions
@@ -36,8 +36,8 @@ interface UseVideoCallReturn {
   stopScreenShare: () => Promise<void>;
   
   // Local tracks (for rendering)
-  localVideoTrack: any;
-  localAudioTrack: any;
+  localVideoTrack: ICameraVideoTrack | null;
+  localAudioTrack: IMicrophoneAudioTrack | null;
 }
 
 export const useVideoCall = ({ roomId, onError }: UseVideoCallOptions): UseVideoCallReturn => {
@@ -45,10 +45,9 @@ export const useVideoCall = ({ roomId, onError }: UseVideoCallOptions): UseVideo
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isAudioOn, setIsAudioOn] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const [participants, setParticipants] = useState<Participant[]>([]);
   const [remoteUsers, setRemoteUsers] = useState<RemoteUser[]>([]);
-  const [localVideoTrack, setLocalVideoTrack] = useState<any>(null);
-  const [localAudioTrack, setLocalAudioTrack] = useState<any>(null);
+  const [localVideoTrack, setLocalVideoTrack] = useState<ICameraVideoTrack | null>(null);
+  const [localAudioTrack, setLocalAudioTrack] = useState<IMicrophoneAudioTrack | null>(null);
 
   const tokenRefreshTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -288,7 +287,6 @@ export const useVideoCall = ({ roomId, onError }: UseVideoCallOptions): UseVideo
         agoraService.leave().catch(console.error);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty deps - only run cleanup on unmount
 
   return {
@@ -297,7 +295,6 @@ export const useVideoCall = ({ roomId, onError }: UseVideoCallOptions): UseVideo
     isVideoOn,
     isAudioOn,
     isScreenSharing,
-    participants,
     remoteUsers,
     
     // Actions

@@ -125,18 +125,19 @@ class AgoraService {
           config.token,
           finalUid
         );
-      } catch (joinError: any) {
+      } catch (joinError) {
+        const error = joinError as Error & { code?: string };
         console.error("❌ Agora join failed with error:", {
-          message: joinError.message,
-          code: joinError.code,
-          name: joinError.name,
-          stack: joinError.stack,
+          message: error.message,
+          code: error.code,
+          name: error.name,
+          stack: error.stack,
         });
         
         // Enhance error message for common issues
-        if (joinError.message?.includes("invalid vendor key") || 
-            joinError.message?.includes("INVALID_VENDOR_KEY") ||
-            joinError.code === "INVALID_VENDOR_KEY") {
+        if (error.message?.includes("invalid vendor key") || 
+            error.message?.includes("INVALID_VENDOR_KEY") ||
+            error.code === "INVALID_VENDOR_KEY") {
           throw new Error(
             `❌ AGORA TOKEN ERROR: Invalid vendor key\n\n` +
             `This usually means:\n` +
@@ -149,11 +150,11 @@ class AgoraService {
             `- UID: ${config.uid}\n` +
             `- Token Length: ${config.token.length}\n` +
             `- Token Start: ${config.token.substring(0, 20)}...\n\n` +
-            `Original Error: ${joinError.message}`
+            `Original Error: ${error.message}`
           );
         }
         
-        throw joinError;
+        throw error;
       }
 
       console.log("✅ Agora client joined successfully");
@@ -264,7 +265,11 @@ class AgoraService {
         }
 
         this.remoteUsers.set(user.uid, remoteUser);
-        this.handlers.onUserPublished?.(remoteUser, mediaType);
+        
+        // Only notify for audio/video (exclude datachannel)
+        if (mediaType === "audio" || mediaType === "video") {
+          this.handlers.onUserPublished?.(remoteUser, mediaType);
+        }
 
       } catch (error) {
         console.error(`❌ Failed to subscribe to ${user.uid}:`, error);
@@ -300,7 +305,10 @@ class AgoraService {
         this.remoteUsers.set(user.uid, remoteUser);
       }
 
-      this.handlers.onUserUnpublished?.(user.uid, mediaType);
+      // Only notify for audio/video (exclude datachannel)
+      if (mediaType === "audio" || mediaType === "video") {
+        this.handlers.onUserUnpublished?.(user.uid, mediaType);
+      }
     });
 
     // Token will expire (need to refresh)

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { signalRService } from "@/services/signalRService";
 import { privateApiService } from "@/services/ApiPrivate";
 import { Users, Video, VideoOff, Mic, MicOff, Monitor, Hand } from "lucide-react";
-import type { RoomUserDto, MediaStatusUpdate } from "@/model/studyRoom/studyRoomTypes";
+import type { RoomUserDto, MediaStatusUpdate, ScreenSharingStatusUpdate } from "@/model/studyRoom/studyRoomTypes";
 import type { RemoteUser } from "@/services/agoraService";
 
 interface ParticipantsPanelProps {
@@ -246,7 +246,7 @@ export default function ParticipantsPanel({
       );
     };
 
-    const handleScreenSharingUpdate = (update: any) => {
+    const handleScreenSharingUpdate = (update: ScreenSharingStatusUpdate) => {
       console.log("🖥️ Screen sharing update:", update);
       setParticipants((prev) =>
         prev.map((p) =>
@@ -268,7 +268,7 @@ export default function ParticipantsPanel({
     return () => {
       // Cleanup if needed
     };
-  }, [isOpen, roomId]);
+  }, [isOpen, roomId, currentUserId]);
 
   if (!isOpen) return null;
 
