@@ -1,6 +1,6 @@
 "use client";
 
-import Navbar from "@/components/navbar/Navbar";
+import Navbar from "@/components/Navbar";
 import { RoomList } from "@/components/RoomList";
 
 export default function ClassroomsPage() {
@@ -13,3 +13,4 @@ export default function ClassroomsPage() {
     </div>
   );
 }
+
