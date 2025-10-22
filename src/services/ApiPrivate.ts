@@ -78,13 +78,22 @@ export const privateApiService = {
   },
   // ============ STREAK APIs ============
   /** Get my streak detail */
-  getMyStreak: async (): Promise<StreakDetail> => {
-    const response = await apiService.privateApiClient.get<StreakDetail>("/streaks/me");
+  getMyStreak: async (): Promise<StreakDetail> => {  
+  const response = await apiService.privateApiClient.get<StreakDetail>("/streaks/me");
+  return wrapResponse(response);
+  },
+
+  /** Check in (đánh dấu học hôm nay) */
+  checkInStreak: async (): Promise<StreakDetail> => {
+    const response = await apiService.privateApiClient.post<StreakDetail>("/streaks/check-in");
     return wrapResponse(response);
   },
+
   /** Get leaderboard by period (e.g. 7 or 30 days) */
   getStreakLeaderboard: async (period: number): Promise<StreakLeaderboardResponse> => {
-    const response = await apiService.privateApiClient.get<StreakLeaderboardResponse>(`/streaks/leaderboard?period=${period}`);
+    const response = await apiService.privateApiClient.get<StreakLeaderboardResponse>(
+    `/streaks/leaderboard?period=${period}`
+    );
     return wrapResponse(response);
   },
   // ============ STUDY ROOM APIs ============
