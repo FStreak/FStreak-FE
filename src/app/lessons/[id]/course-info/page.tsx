@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import {Star, CheckSquare, Clock, Globe} from "lucide-react";
-
+import Navbar from "@/components/Navbar";
 const rows = [
   {icon: <Star className="w-5 h-5 text-amber-500"/>, title: 'Basic Info', value: 'Course 1 of 5 in the Python for Everybody Specialization'},
   {icon: <CheckSquare className="w-5 h-5"/>, title: 'Level', value: 'Beginner'},
@@ -31,6 +31,7 @@ export default function CourseInfoPage(){
 
   return (
     <div className="space-y-4">
+      <Navbar />
       <h2 className="text-lg font-semibold">Course Info</h2>
 
       <div className="rounded border overflow-hidden bg-card">

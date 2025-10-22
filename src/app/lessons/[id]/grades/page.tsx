@@ -1,9 +1,10 @@
 "use client";
 import React from "react";
-
+import Navbar from "@/components/Navbar";
 export default function GradesPage() {
   return (
     <div className="space-y-4">
+      <Navbar />
       <h2 className="text-lg font-semibold">Grades</h2>
       <div className="p-4 rounded border bg-card">
         <p className="text-sm text-muted-foreground">No grades available yet for this course.</p>

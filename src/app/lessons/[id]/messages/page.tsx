@@ -1,9 +1,10 @@
 "use client";
 import React from "react";
-
+import Navbar from "@/components/Navbar";
 export default function MessagesPage(){
   return (
     <div className="space-y-4">
+      <Navbar />
       <h2 className="text-lg font-semibold">Messages</h2>
       <div className="p-4 rounded border bg-card">
         <ul className="space-y-3 text-sm">

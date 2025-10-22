@@ -1,6 +1,6 @@
 "use client";
 import React, {useState} from "react";
-
+import Navbar from "@/components/Navbar";
 function MockPost({author, text}: {author: string; text: string}){
   return (
     <div className="p-3 border rounded bg-card">
@@ -22,6 +22,7 @@ export default function DiscussionPage(){
 
   return (
     <div className="space-y-4">
+      <Navbar />
       <h2 className="text-lg font-semibold">Discussion Forums</h2>
       <div className="p-3 rounded border bg-card">
         <textarea value={text} onChange={(e)=>setText(e.target.value)} className="w-full p-2 rounded border bg-background text-foreground" rows={3} placeholder="Write a new post..."></textarea>

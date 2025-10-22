@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-
+import React from "react";
+import Navbar from "@/components/Navbar";
 const mockLesson = {
   id: 'l1',
   title: 'Introduction to Advanced Algebra',
@@ -20,6 +21,7 @@ const mockLesson = {
 export default function LessonDetailPage(){
   return (
     <div className="min-h-screen">
+      <Navbar />
       <div className="mx-auto max-w-7xl px-6 py-8">
         <h1 className="text-2xl font-bold mb-3">{mockLesson.title}</h1>
 
