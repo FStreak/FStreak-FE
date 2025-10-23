@@ -1,70 +1,52 @@
 "use client";
 
-import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
-import React from "react";
 import Navbar from "@/components/navbar/Navbar";
-const mockLesson = {
-  id: 'l1',
-  title: 'Introduction to Advanced Algebra',
-  video: {
-    title: 'Lecture 1: Why we Program?',
-    src: 'https://www.w3schools.com/html/mov_bbb.mp4',
-    minutes: 6,
-  },
-  readings: [
-    { id: 'r1', title: 'Welcome to the Class', minutes: 10 },
-    { id: 'r2', title: 'Course Syllabus', minutes: 10 },
-  ],
-};
+import { Card, CardContent } from "@/components/ui/card";
+import { Info, Clock, Star } from "lucide-react";
 
-export default function LessonDetailPage(){
+export default function LessonOverviewPage() {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gradient-to-b from-[#FFF9F3] via-white to-[#FFF4EA] dark:from-gray-950 dark:to-gray-900">
       <Navbar />
-      <div className="mx-auto max-w-7xl px-6 py-8">
-        <h1 className="text-2xl font-bold mb-3">{mockLesson.title}</h1>
+      <div className="mx-auto max-w-7xl px-6 py-10 space-y-10">
+        {/* 🧭 Tiêu đề bài học */}
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          Lesson Overview
+        </h1>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div>
-            <Card>
-              <CardContent className="p-6">
-                <div className="mb-4">
-                  <div className="font-medium text-sm text-muted-foreground">{mockLesson.video.title} • {mockLesson.video.minutes} min</div>
-                  <div className="mt-3">
-                    <video controls src={mockLesson.video.src} className="w-full rounded" />
-                  </div>
-                </div>
-
-                <div className="mt-6">
-                  <h3 className="font-semibold mb-3">Readings</h3>
-                  <ul className="space-y-3">
-                    {mockLesson.readings.map(r => (
-                      <li key={r.id} className="flex items-center justify-between p-3 border rounded">
-                        <div>
-                          <div className="font-medium">{r.title}</div>
-                          <div className="text-xs text-muted-foreground">Reading • {r.minutes} min</div>
-                        </div>
-                        <Link href={`#/`} className="px-3 py-1 rounded bg-orange-50 text-orange-600">Open</Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div>
-            <div className="space-y-4">
-              <Card>
-                <CardContent>
-                  <h3 className="font-semibold">About this lesson</h3>
-                  <p className="text-sm text-muted-foreground mt-2">This lesson introduces core concepts used throughout the course.</p>
-                </CardContent>
-              </Card>
+        {/* 📘 Thông tin tổng quan bài học */}
+        <Card className="rounded-2xl border border-orange-100 dark:border-gray-700 bg-white/90 dark:bg-gray-800/80 shadow-sm">
+          <CardContent className="p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <Info className="text-orange-500 w-5 h-5" />
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                About this lesson
+              </h2>
             </div>
-          </div>
-        </div>
+            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+              This lesson introduces the fundamental concepts of programming and
+              problem solving. You’ll explore topics such as algorithms,
+              variables, data types, and logical operations through interactive
+              examples.
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* 📈 Thông tin tiến độ */}
+        <Card className="rounded-2xl border border-orange-100 dark:border-gray-700 bg-white/90 dark:bg-gray-800/80 shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2 text-gray-700 dark:text-gray-200">
+                <Clock className="w-5 h-5 text-orange-500" />
+                <span>Estimated completion time: 6 hours</span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-700 dark:text-gray-200">
+                <Star className="w-5 h-5 text-yellow-500" />
+                <span>Difficulty: Beginner</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

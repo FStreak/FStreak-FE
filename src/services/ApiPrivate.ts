@@ -9,7 +9,7 @@ import type {
 } from "../model/studyRoom/studyRoomTypes";
 import type { UserProfile } from "../model/authModel/authDataType";
 import type { ReminderEntry } from "../model/reminder/reminderTypes";
-import type { StreakDetail, StreakLeaderboardResponse } from "@/model/streak/streakTypes";
+import type { StreakDetail, StreakLeaderboardResponse, CheckInRequest  } from "@/model/streak/streakTypes";
 
 export const privateApiService = {
   // ============ USER APIs ============
@@ -84,10 +84,14 @@ export const privateApiService = {
   },
 
   /** Check in (đánh dấu học hôm nay) */
-  checkInStreak: async (): Promise<StreakDetail> => {
-    const response = await apiService.privateApiClient.post<StreakDetail>("/streaks/check-in");
-    return wrapResponse(response);
-  },
+  checkInStreak: async (body: { date: string; source: number }): Promise<StreakDetail> => {
+  const response = await apiService.privateApiClient.post<StreakDetail>(
+    "/Streaks/check-in",
+    body
+  );
+  return wrapResponse(response);
+},
+
 
   /** Get leaderboard by period (e.g. 7 or 30 days) */
   getStreakLeaderboard: async (period: number): Promise<StreakLeaderboardResponse> => {

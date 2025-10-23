@@ -9,6 +9,7 @@ import {
   FileText,
   CreditCard,
   Bell,
+  PawPrint, // 🐾 Thêm icon cho mascot
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -24,7 +25,6 @@ export default function Navbar() {
 
   const isActive = (path: string) => pathname === path;
 
-  // Notifications
   const [reminders, setReminders] = useState<ReminderEntry[]>([]);
   const [openNotif, setOpenNotif] = useState(false);
   const notifRef = useRef<HTMLDivElement | null>(null);
@@ -71,6 +71,7 @@ export default function Navbar() {
             { href: "/lessons", icon: BookOpen, label: "Lessons" },
             { href: "/classrooms", icon: Users2, label: "Classrooms" },
             { href: "/studyWall", icon: FileText, label: "StudyWall" },
+            { href: "/mascot", icon: PawPrint, label: "Mascot" }, // 🐾 Thêm tab mới
             { href: "/plans", icon: CreditCard, label: "Plans" },
           ].map(({ href, icon: Icon, label }) => (
             <Link
