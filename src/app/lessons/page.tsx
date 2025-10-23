@@ -1,96 +1,58 @@
 "use client";
 
-import Link from "next/link";
 import Navbar from "@/components/navbar/Navbar";
-import { Card, CardContent } from "@/components/ui/card";
+import LessonHeader from "./components/LessonHeader";
+import FeaturedLessonCard from "./components/FeaturedLessonCard";
+import LessonCard from "./components/LessonCard";
 
 const mockLessons = [
   {
     id: "l1",
     title: "Basic Calculus",
     level: "Beginner",
-    desc: "Understand the fundamentals of derivatives and integrals",
+    desc: "Understand derivatives and integrals through simple real-world examples.",
     progress: 65,
   },
   {
     id: "l2",
     title: "Physics Fundamentals",
     level: "Beginner",
-    desc: "Explore the laws of motion and energy",
+    desc: "Explore the laws of motion and energy with practical insights.",
     progress: 20,
   },
   {
     id: "l3",
     title: "Introduction to Python",
     level: "Intermediate",
-    desc: "Learn the basics of programming with Python",
+    desc: "Write simple scripts, handle data, and learn coding logic.",
     progress: 0,
   },
   {
     id: "l4",
     title: "Spanish for Travelers",
     level: "Beginner",
-    desc: "Essential phrases and grammar for your next trip",
+    desc: "Learn easy-to-remember phrases for your next trip.",
     progress: 40,
   },
 ];
 
 export default function LessonsPage() {
-  return (
-    <div className="min-h-screen">
-      <Navbar />
-      <div className="mx-auto max-w-6xl px-6 py-10">
-        <div className="flex items-center gap-6 mb-8">
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold">LESSONS</h1>
-            <p className="text-sm text-muted-foreground mt-2">
-              Continue learning and track progress across lessons.
-            </p>
-          </div>
-          <div className="space-x-3">
-            <Link
-              href="/lessons/continue"
-              className="px-4 py-2 bg-orange-500 text-white rounded"
-            >
-              Continue Lesson
-            </Link>
-            <Link href="/lessons/new" className="px-4 py-2 border rounded">
-              Create Lesson
-            </Link>
-          </div>
-        </div>
+  const featured = mockLessons[0];
+  const rest = mockLessons.slice(1);
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {mockLessons.map((l) => (
-                <div
-                  key={l.id}
-                  className="relative p-4 rounded border bg-white"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="font-semibold text-foreground">
-                      {l.title}
-                    </div>
-                    <div className="text-xs text-muted-foreground uppercase">
-                      {l.level}
-                    </div>
-                  </div>
-                  <div className="text-sm text-muted-foreground mb-4">
-                    {l.desc}
-                  </div>
-                  <Link
-                    href={`/lessons/${l.id}`}
-                    className="inline-block px-3 py-2 bg-orange-50 text-orange-600 rounded"
-                  >
-                    Start Lesson • {l.progress}%
-                  </Link>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+  return (
+    <div className="min-h-screen bg-[#FAFAF8] dark:bg-[#0B0B0B]">
+      <Navbar />
+      <main className="mx-auto max-w-6xl px-5 md:px-8 py-10 md:py-14 space-y-10">
+        <LessonHeader />
+        <FeaturedLessonCard lesson={featured} />
+
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {rest.map((l) => (
+            <LessonCard key={l.id} lesson={l} />
+          ))}
+        </section>
+      </main>
     </div>
   );
 }

@@ -17,5 +17,8 @@ export interface StreakLeaderboardResponse {
   period: number; // e.g. 7, 30
   items: StreakLeaderboardItem[];
 }
-
+export interface CheckInRequest {
+  date: string;  // ISO string
+  source: number; // 0 = default (manual), có thể mở rộng sau này
+}
 

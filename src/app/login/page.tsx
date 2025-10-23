@@ -32,7 +32,7 @@ export default function LoginPage() {
 
         // Lưu thông tin user vào localStorage nếu cần
         localStorage.setItem("user", JSON.stringify(data.user));
-
+        localStorage.setItem("loginTime", Date.now().toString());
         showSuccess(`Chào mừng ${data.user.firstName}! 🔥`);
         router.push("/");
       } else {
