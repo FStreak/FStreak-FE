@@ -1,13 +1,16 @@
+import { ReactNode } from "react";
 import LessonSidebar from "@/components/lesson/LessonSidebar";
+
+interface LessonLayoutProps {
+  children: ReactNode;
+  params: Promise<{ id: string }>; // ✅ Next.js 15: params là Promise
+}
 
 export default async function LessonLayout({
   children,
   params,
-}: {
-  children: React.ReactNode;
-  params: { id: string };
-}) {
-  const id = (await params)?.id; // chỉ cần destructure đơn giản
+}: LessonLayoutProps) {
+  const { id } = await params; // ✅ Bắt buộc phải await
   const base = `/lessons/${id}`;
 
   return (
