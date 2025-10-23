@@ -1,6 +1,6 @@
 "use client";
 import React, {useState} from "react";
-import Navbar from "@/components/Navbar";
+import Navbar from "@/components/navbar/Navbar";
 function MockPost({author, text}: {author: string; text: string}){
   return (
     <div className="p-3 border rounded bg-card">

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import React from "react";
-import Navbar from "@/components/Navbar";
+import Navbar from "@/components/navbar/Navbar";
 const mockLesson = {
   id: 'l1',
   title: 'Introduction to Advanced Algebra',
