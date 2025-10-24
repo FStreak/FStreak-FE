@@ -10,7 +10,7 @@ import type {
 import type { UserProfile } from "../model/authModel/authDataType";
 import type { ReminderEntry } from "../model/reminder/reminderTypes";
 import type { StreakDetail, StreakLeaderboardResponse, CheckInRequest  } from "@/model/streak/streakTypes";
-
+import type { LogoutRequest, LogoutResponse } from "@/model/authModel/authDataType";
 export const privateApiService = {
   // ============ USER APIs ============
   /** Get current user profile */
@@ -185,6 +185,14 @@ export const privateApiService = {
    */
   refreshAgoraTokens: async (roomId: number): Promise<AgoraTokenResponse> => {
     const response = await apiService.privateApiClient.post<AgoraTokenResponse>(`/studyrooms/${roomId}/refresh-tokens`);
+    return wrapResponse(response);
+  },
+
+  logout: async (logoutInfo: LogoutRequest): Promise<LogoutResponse> => {
+    const response = await apiService.privateApiClient.post<LogoutResponse>(
+      "/auth/logout",
+      logoutInfo
+    );
     return wrapResponse(response);
   },
 };
