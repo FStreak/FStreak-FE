@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import ApiPrivate from "@/services/ApiPrivate";
 import { useTokenInfoStorage } from "@/store/authStore";
+import type { StreakDetail } from "@/model/streak/streakTypes";
 
 export default function CheckStreakTimer() {
   const { token, userId } = useTokenInfoStorage();
@@ -11,54 +12,54 @@ export default function CheckStreakTimer() {
   const [streak, setStreak] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  // 🧩 Kiểm tra trạng thái streak khi login
   useEffect(() => {
     if (!token || !userId) {
       console.log("🚫 Not logged in — disable streak timer.");
-      setShowPopup(false);
       return;
     }
 
-    const now = new Date();
-    const today = now.toDateString();
+    const fetchStreakStatus = async () => {
+      try {
+        const data: StreakDetail = await ApiPrivate.getMyStreak();
+        console.log("🧠 Current streak:", data);
 
-    // 🧹 Reset theo ngày mới
-    const lastResetDate = localStorage.getItem("lastResetDate");
-    if (lastResetDate !== today) {
-      console.log("🌅 New day detected — reset user check-ins.");
-      localStorage.removeItem(`checkedInUser_${userId}`);
-      localStorage.setItem("lastResetDate", today);
-    }
+        // 🗓 Kiểm tra ngày cuối cùng check-in
+        const lastCheckin = data.lastCheckInDate
+          ? new Date(data.lastCheckInDate)
+          : null;
+        const today = new Date();
 
-    // 📦 Kiểm tra user đã check-in hôm nay chưa
-    const checkedDate = localStorage.getItem(`checkedInUser_${userId}`);
-    if (checkedDate === today) {
-      console.log(`✅ User ${userId} already checked in today.`);
-      return;
-    }
+        const alreadyCheckedToday =
+          lastCheckin && lastCheckin.toDateString() === today.toDateString();
 
-    // 🕐 Nếu chưa có loginTime hoặc ngày mới thì reset lại
-    const savedTime = localStorage.getItem(`loginTime_${userId}`);
-    const savedDate = localStorage.getItem(`loginDate_${userId}`);
+        if (alreadyCheckedToday) {
+          console.log("✅ Already checked in today — skip popup.");
+          return; // Không hiện popup
+        }
 
-    if (!savedTime || savedDate !== today) {
-      localStorage.setItem(`loginTime_${userId}`, Date.now().toString());
-      localStorage.setItem(`loginDate_${userId}`, today);
-      console.log("🕒 New loginTime set:", now.toLocaleTimeString());
-    }
+        // 🕒 Chưa check-in → bắt đầu đếm ngược
+        console.log("⏱ Countdown started...");
+        startCountdown();
+      } catch (error) {
+        console.warn(
+          "⚠️ Could not fetch streak info. Defaulting to countdown.",
+          error
+        );
+        startCountdown();
+      }
+    };
 
-    // ⏱ Test: 10s (thực tế: 10 * 60 * 1000)
-    const loginTime = Number(localStorage.getItem(`loginTime_${userId}`));
-    const elapsed = Date.now() - loginTime;
-    const remaining = Math.max(10 * 1000 - elapsed, 0);
+    const startCountdown = () => {
+      // test: 10s, production: 10 * 60 * 1000
+      const timer = setTimeout(() => {
+        console.log("🔥 Show popup for streak check-in!");
+        setShowPopup(true);
+      }, 10 * 1000);
+      return () => clearTimeout(timer);
+    };
 
-    console.log(`⏱ Countdown for ${userId}: ${(remaining / 1000).toFixed(1)}s`);
-
-    const timer = setTimeout(() => {
-      console.log("🔥 Show popup for streak check-in!");
-      setShowPopup(true);
-    }, remaining);
-
-    return () => clearTimeout(timer);
+    fetchStreakStatus();
   }, [token, userId]);
 
   // ✅ Gọi API check-in
@@ -83,19 +84,15 @@ export default function CheckStreakTimer() {
       }
 
       const body = { date: realTime, source: 0, timezone };
-      const updated = await ApiPrivate.checkInStreak(body);
+      const updated: StreakDetail = await ApiPrivate.checkInStreak(body);
 
       setStreak(updated.currentStreak);
       setMessage(
         `🔥 Streak updated! Current streak: ${updated.currentStreak} day(s)`
       );
-
-      const today = new Date().toDateString();
-      localStorage.setItem(`checkedInUser_${userId}`, today); // ✅ lưu riêng từng user
-      localStorage.setItem(`loginTime_${userId}`, Date.now().toString());
-      localStorage.setItem(`loginDate_${userId}`, today);
-    } catch (err) {
-      console.error("⚠️ Update streak failed:", err);
+      setShowPopup(false); // ẩn popup sau khi check-in thành công
+    } catch (error) {
+      console.error("⚠️ Update streak failed:", error);
       setMessage("⚠️ Session expired or check-in failed.");
     } finally {
       setLoading(false);
@@ -123,12 +120,6 @@ export default function CheckStreakTimer() {
                 className="px-5 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-medium transition disabled:opacity-60"
               >
                 {loading ? "Updating..." : "Yes, Update Streak 🔥"}
-              </button>
-              <button
-                onClick={() => setShowPopup(false)}
-                className="px-5 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100 font-medium transition"
-              >
-                Not now
               </button>
             </div>
           </>
