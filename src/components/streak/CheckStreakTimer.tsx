@@ -31,9 +31,10 @@ export default function CheckStreakTimer() {
     }
 
     // ✅ Tính thời gian còn lại (test: 10s)
+    // ✅ Hiện popup sau 10 phút (600 000 ms)
     const loginTime = localStorage.getItem("loginTime");
     const elapsed = Date.now() - Number(loginTime);
-    const remaining = Math.max(10 * 1000 - elapsed, 0);
+    const remaining = Math.max(10 * 60 * 1000 - elapsed, 0);
 
     console.log(`⏱️ Remaining until popup: ${remaining / 1000}s`);
     const timer = setTimeout(() => {
@@ -44,25 +45,45 @@ export default function CheckStreakTimer() {
     return () => clearTimeout(timer);
   }, []);
 
-  // ✅ Gọi API check-in (dùng giờ thực tế)
+  // ✅ Gọi API check-in (có fallback nếu WorldTimeAPI lỗi)
   const handleUpdateStreak = async () => {
     setLoading(true);
     setMessage(null);
 
     try {
-      // 🌐 Lấy giờ thật từ WorldTimeAPI (theo IP người dùng)
-      const worldTimeRes = await fetch("https://worldtimeapi.org/api/ip");
-      const worldTimeData = await worldTimeRes.json();
-      const realTime = worldTimeData.datetime; // ISO format chuẩn
+      let realTime = new Date().toISOString(); // ⏰ default fallback (local time)
+      let timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-      console.log("🌍 Real time from worldtimeapi:", realTime);
+      try {
+        console.log("🌐 Fetching real time from timeapi.io...");
+        const worldTimeRes = await fetch(
+          "https://timeapi.io/api/Time/current/ip"
+        );
+
+        if (worldTimeRes.ok) {
+          const worldTimeData = await worldTimeRes.json();
+          realTime = worldTimeData.dateTime || new Date().toISOString();
+          timezone = worldTimeData.timeZone || timezone;
+          console.log("✅ Real time from timeapi.io:", realTime, timezone);
+        } else {
+          console.warn("⚠️ timeapi.io returned error:", worldTimeRes.status);
+        }
+      } catch (timeError) {
+        console.warn(
+          "⚠️ Could not fetch real time, fallback to local:",
+          timeError
+        );
+      }
 
       const body = {
         date: realTime, // 🕒 Dữ liệu thời gian thật
         source: 0,
+        timezone,
       };
 
+      console.log("📦 Sending check-in body:", body);
       const updated = await ApiPrivate.checkInStreak(body);
+
       setStreak(updated.currentStreak);
       setMessage(
         `🔥 Streak updated! Current streak: ${updated.currentStreak} day(s)`
