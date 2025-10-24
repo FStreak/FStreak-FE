@@ -20,7 +20,6 @@ export default function CheckStreakTimer() {
     const now = new Date();
     const today = now.toDateString();
 
-    // 🧩 Nếu chưa có loginTime hoặc sang ngày mới thì set lại
     if (!savedTime) {
       localStorage.setItem("loginTime", Date.now().toString());
     } else {
@@ -30,8 +29,7 @@ export default function CheckStreakTimer() {
       }
     }
 
-    // ✅ Tính thời gian còn lại (test: 10s)
-    // ✅ Hiện popup sau 10 phút (600 000 ms)
+    // ⏱️ Hiện popup sau 10 phút (600.000 ms)
     const loginTime = localStorage.getItem("loginTime");
     const elapsed = Date.now() - Number(loginTime);
     const remaining = Math.max(10 * 60 * 1000 - elapsed, 0);
@@ -45,51 +43,41 @@ export default function CheckStreakTimer() {
     return () => clearTimeout(timer);
   }, []);
 
-  // ✅ Gọi API check-in (có fallback nếu WorldTimeAPI lỗi)
+  // ✅ Gọi API check-in (có fallback nếu fetch lỗi)
   const handleUpdateStreak = async () => {
     setLoading(true);
     setMessage(null);
 
     try {
-      let realTime = new Date().toISOString(); // ⏰ default fallback (local time)
+      let realTime = new Date().toISOString();
       let timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
       try {
         console.log("🌐 Fetching real time from timeapi.io...");
-        const worldTimeRes = await fetch(
-          "https://timeapi.io/api/Time/current/ip"
-        );
-
-        if (worldTimeRes.ok) {
-          const worldTimeData = await worldTimeRes.json();
-          realTime = worldTimeData.dateTime || new Date().toISOString();
-          timezone = worldTimeData.timeZone || timezone;
+        const res = await fetch("https://timeapi.io/api/Time/current/ip");
+        if (res.ok) {
+          const data = await res.json();
+          realTime = data.dateTime || realTime;
+          timezone = data.timeZone || timezone;
           console.log("✅ Real time from timeapi.io:", realTime, timezone);
         } else {
-          console.warn("⚠️ timeapi.io returned error:", worldTimeRes.status);
+          console.warn("⚠️ timeapi.io returned error:", res.status);
         }
-      } catch (timeError) {
+      } catch (fetchErr) {
         console.warn(
-          "⚠️ Could not fetch real time, fallback to local:",
-          timeError
+          "⚠️ WorldTimeAPI failed, fallback to local time:",
+          fetchErr
         );
       }
 
-      const body = {
-        date: realTime, // 🕒 Dữ liệu thời gian thật
-        source: 0,
-        timezone,
-      };
-
+      const body = { date: realTime, source: 0, timezone };
       console.log("📦 Sending check-in body:", body);
-      const updated = await ApiPrivate.checkInStreak(body);
 
+      const updated = await ApiPrivate.checkInStreak(body);
       setStreak(updated.currentStreak);
       setMessage(
         `🔥 Streak updated! Current streak: ${updated.currentStreak} day(s)`
       );
-
-      setTimeout(() => setShowPopup(false), 2500);
     } catch (err) {
       console.error("⚠️ Update streak failed:", err);
       setMessage("⚠️ Session expired or check-in failed.");
@@ -112,7 +100,6 @@ export default function CheckStreakTimer() {
             <p className="text-gray-600 dark:text-gray-300 mb-6">
               Do you want to update your streak progress now?
             </p>
-
             <div className="flex justify-center gap-4">
               <button
                 onClick={handleUpdateStreak}
@@ -130,13 +117,19 @@ export default function CheckStreakTimer() {
             </div>
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center gap-3 text-orange-600 font-medium mt-2">
+          <div className="flex flex-col items-center justify-center gap-4 text-orange-600 font-medium mt-2">
             <p>{message}</p>
             {streak !== null && (
               <p className="text-sm text-gray-500">
                 Keep going! 🔥 Every day counts.
               </p>
             )}
+            <button
+              onClick={() => setShowPopup(false)}
+              className="mt-2 px-5 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-semibold transition"
+            >
+              Close
+            </button>
           </div>
         )}
       </div>
