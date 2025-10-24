@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+
 import { Heart } from "lucide-react";
 
 export default function LessonHeader() {
@@ -17,23 +17,7 @@ export default function LessonHeader() {
         </p>
       </div>
 
-      <div className="flex gap-3">
-        {/* 🧡 Primary action: gradient */}
-        <Link
-          href="/lessons/continue"
-          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-400 text-white font-semibold shadow-sm hover:shadow-lg transition-all"
-        >
-          Continue Learning
-        </Link>
-
-        {/* ⚪ Secondary action: soft border matching tone */}
-        <Link
-          href="/lessons/new"
-          className="px-5 py-2.5 rounded-xl border border-orange-200 text-orange-600 bg-orange-50 hover:bg-orange-100 transition-all font-medium"
-        >
-          Create Lesson
-        </Link>
-      </div>
+      
     </section>
   );
 }
