@@ -26,10 +26,11 @@ export default function LoginPage() {
 
       // ✅ Kiểm tra succeeded và accessToken
       if (data.succeeded && data.accessToken) {
-        const { setToken, setRefreshToken } = useTokenInfoStorage.getState();
+        const { setToken, setRefreshToken, setUserId } =
+          useTokenInfoStorage.getState();
         setToken(data.accessToken);
         setRefreshToken(data.refreshToken);
-
+        setUserId(data.user.id);
         // Lưu thông tin user vào localStorage nếu cần
         localStorage.setItem("user", JSON.stringify(data.user));
         localStorage.setItem("loginTime", Date.now().toString());
