@@ -66,3 +66,19 @@ export interface RegisterResponse {
     roles: string[];
   };
 }
+
+// src/model/authModel/authLogoutType.ts
+export interface LogoutRequest {
+  accessToken: string;
+  refreshToken: string;
+}
+
+export interface LogoutResponse {
+  succeeded: boolean;
+  message: string;
+  accessToken: string | null;
+  refreshToken: string | null;
+  tokenType?: string;
+  expires?: string | null;
+  user?: unknown | null;
+}

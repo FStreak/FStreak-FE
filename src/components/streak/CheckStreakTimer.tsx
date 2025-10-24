@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import ApiPrivate from "@/services/ApiPrivate";
 import { useTokenInfoStorage } from "@/store/authStore";
 import type { StreakDetail } from "@/model/streak/streakTypes";
@@ -12,87 +12,116 @@ export default function CheckStreakTimer() {
   const [streak, setStreak] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  // 🧩 Kiểm tra trạng thái streak khi login
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
-    if (!token || !userId) {
-      console.log("🚫 Not logged in — disable streak timer.");
-      return;
-    }
+    console.log("🟢 Mounted — userId:", userId, "| token:", !!token);
+
+    if (!token) return console.log("🚫 No token — skip streak timer");
+    if (!userId) return console.log("⏳ Waiting for userId...");
+
+    console.log("✅ Token & userId ready → fetching streak info...");
 
     const fetchStreakStatus = async () => {
       try {
         const data: StreakDetail = await ApiPrivate.getMyStreak();
-        console.log("🧠 Current streak:", data);
+        console.log("📦 Received streak data:", data);
 
-        // 🗓 Kiểm tra ngày cuối cùng check-in
-        const lastCheckin = data.lastCheckInDate
-          ? new Date(data.lastCheckInDate)
-          : null;
-        const today = new Date();
-
-        const alreadyCheckedToday =
-          lastCheckin && lastCheckin.toDateString() === today.toDateString();
-
-        if (alreadyCheckedToday) {
-          console.log("✅ Already checked in today — skip popup.");
-          return; // Không hiện popup
+        // 🧩 Kiểm tra userId khớp không
+        if (!data.userId || data.userId !== userId) {
+          console.warn(
+            "⚠️ Wrong userId — streak data belongs to another user!"
+          );
+          resetForCurrentUser();
+          return;
         }
 
-        // 🕒 Chưa check-in → bắt đầu đếm ngược
-        console.log("⏱ Countdown started...");
+        // 🆕 Nếu user chưa từng check-in
+        if (!data.lastCheckInDate) {
+          console.log("🆕 New user — no check-in history → start countdown");
+          startCountdown();
+          return;
+        }
+
+        // 🗓 Kiểm tra ngày check-in gần nhất
+        const lastCheckin = new Date(data.lastCheckInDate);
+        const today = new Date();
+        const sameDay = lastCheckin.toDateString() === today.toDateString();
+
+        console.log(
+          "📅 Last check-in:",
+          lastCheckin.toDateString(),
+          "| Today:",
+          today.toDateString()
+        );
+
+        if (sameDay) {
+          console.log("✅ Already checked in today — no popup");
+          return;
+        }
+
+        console.log("⏱ Not checked in today — starting countdown...");
         startCountdown();
-      } catch (error) {
+      } catch (err) {
         console.warn(
-          "⚠️ Could not fetch streak info. Defaulting to countdown.",
-          error
+          "⚠️ Could not fetch streak info — fallback to countdown",
+          err
         );
         startCountdown();
       }
     };
 
+    const resetForCurrentUser = () => {
+      console.log("🧹 Reset streak for current user (wrong data or new user)");
+      setStreak(0);
+      setMessage(null);
+      startCountdown();
+    };
+
     const startCountdown = () => {
-      // test: 10s, production: 10 * 60 * 1000
-      const timer = setTimeout(() => {
-        console.log("🔥 Show popup for streak check-in!");
+      console.log("⏰ Countdown started (10s test / 10min prod)");
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        console.log("🔥 Countdown finished — showing popup");
         setShowPopup(true);
-      }, 10 * 60 * 1000);
-      return () => clearTimeout(timer);
+      }, 10 * 1000); // test: 10s → prod: 10 * 60 * 1000
     };
 
     fetchStreakStatus();
+
+    // Cleanup (chỉ chạy ở production)
+    return () => {
+      if (process.env.NODE_ENV === "production" && timerRef.current) {
+        clearTimeout(timerRef.current);
+        console.log("🧹 Timer cleaned up (production only)");
+      }
+    };
   }, [token, userId]);
 
-  // ✅ Gọi API check-in
+  // ✅ Handle Check-in
   const handleUpdateStreak = async () => {
+    console.log("🚀 User confirmed check-in");
     if (!userId) return;
     setLoading(true);
     setMessage(null);
 
     try {
-      let realTime = new Date().toISOString();
-      let timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-      try {
-        const res = await fetch("https://timeapi.io/api/Time/current/ip");
-        if (res.ok) {
-          const data = await res.json();
-          realTime = data.dateTime || realTime;
-          timezone = data.timeZone || timezone;
-        }
-      } catch {
-        console.warn("⚠️ Using fallback local time.");
-      }
+      const realTime = new Date().toISOString();
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
       const body = { date: realTime, source: 0, timezone };
+      console.log("📤 Sending payload:", body);
+
       const updated: StreakDetail = await ApiPrivate.checkInStreak(body);
+      console.log("✅ Check-in success:", updated);
 
       setStreak(updated.currentStreak);
       setMessage(
         `🔥 Streak updated! Current streak: ${updated.currentStreak} day(s)`
       );
-      setShowPopup(false); // ẩn popup sau khi check-in thành công
-    } catch (error) {
-      console.error("⚠️ Update streak failed:", error);
+      setShowPopup(false);
+    } catch (err) {
+      console.error("❌ Check-in failed:", err);
       setMessage("⚠️ Session expired or check-in failed.");
     } finally {
       setLoading(false);

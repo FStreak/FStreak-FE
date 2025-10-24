@@ -44,10 +44,11 @@ export default function SignUpPage() {
       const data = await publicApiService.register(form);
 
       if (data.succeeded && data.accessToken) {
-        const { setToken, setRefreshToken } = useTokenInfoStorage.getState();
+        const { setToken, setRefreshToken, setUserId } =
+          useTokenInfoStorage.getState();
         setToken(data.accessToken);
         setRefreshToken(data.refreshToken);
-
+        setUserId(data.user.id);
         localStorage.setItem("user", JSON.stringify(data.user));
 
         showSuccess(`Chào mừng ${data.user.firstName}! 🎉`);

@@ -6,23 +6,48 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTokenInfoStorage } from "@/store/authStore";
 import { User, Settings, LogOut } from "lucide-react";
+import ApiPrivate from "@/services/ApiPrivate";
+import { showSuccess, showError } from "@/lib/toast";
 
 export default function UserDropdown() {
-  const { clear } = useTokenInfoStorage();
+  const { token, refreshToken, clear } = useTokenInfoStorage();
   const router = useRouter();
 
   const [open, setOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
 
-  const handleLogout = () => {
-    clear();
-    router.push("/");
+  /** 🧩 Xử lý logout */
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+
+    try {
+      await ApiPrivate.logout({
+        accessToken: token ?? "",
+        refreshToken: refreshToken ?? "",
+      });
+    } catch (err) {
+      console.warn("⚠️ Logout API failed (ignored)", err);
+    } finally {
+      console.log("🧹 Full logout: clear Zustand + localStorage");
+      useTokenInfoStorage.persist.clearStorage(); // ✅ clear toàn bộ persist
+      localStorage.removeItem("fstreak-auth-storage"); // ✅ đảm bảo không sót
+      localStorage.removeItem("user");
+
+      setLoggingOut(false);
+      setOpen(false);
+      router.push("/");
+      window.location.reload(); // ✅ ép reload sạch store (quan trọng)
+    }
   };
 
+  /** 🔁 Đóng dropdown khi click ra ngoài */
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node))
+      if (ref.current && !ref.current.contains(e.target as Node)) {
         setOpen(false);
+      }
     };
     document.addEventListener("click", handleClick);
     return () => document.removeEventListener("click", handleClick);
@@ -30,7 +55,7 @@ export default function UserDropdown() {
 
   return (
     <div className="relative" ref={ref}>
-      {/* Avatar Button */}
+      {/* 👤 Avatar Button */}
       <button
         onClick={() => setOpen((v) => !v)}
         className="relative w-9 h-9 rounded-full overflow-hidden ring-2 ring-orange-400 hover:ring-orange-500 transition-all"
@@ -43,7 +68,7 @@ export default function UserDropdown() {
         />
       </button>
 
-      {/* Dropdown Menu */}
+      {/* 📜 Dropdown Menu */}
       {open && (
         <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg animate-fadeIn z-50 overflow-hidden">
           <Link
@@ -53,6 +78,7 @@ export default function UserDropdown() {
             <User className="w-4 h-4 text-orange-500" />
             Profile
           </Link>
+
           <Link
             href="/settings"
             className="flex items-center gap-2 px-4 py-2 text-sm text-gray-800 dark:text-gray-200 hover:bg-orange-50 dark:hover:bg-gray-800 transition-all"
@@ -60,12 +86,18 @@ export default function UserDropdown() {
             <Settings className="w-4 h-4 text-orange-500" />
             Settings
           </Link>
+
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-gray-800 transition-all"
+            disabled={loggingOut}
+            className={`flex items-center gap-2 w-full px-4 py-2 text-sm font-medium transition-all ${
+              loggingOut
+                ? "text-gray-400 cursor-not-allowed"
+                : "text-red-500 hover:bg-red-50 dark:hover:bg-gray-800"
+            }`}
           >
             <LogOut className="w-4 h-4" />
-            Logout
+            {loggingOut ? "Đang đăng xuất..." : "Logout"}
           </button>
         </div>
       )}
