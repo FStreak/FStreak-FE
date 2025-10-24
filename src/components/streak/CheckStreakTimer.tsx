@@ -55,7 +55,7 @@ export default function CheckStreakTimer() {
       const timer = setTimeout(() => {
         console.log("🔥 Show popup for streak check-in!");
         setShowPopup(true);
-      }, 10 * 1000);
+      }, 10 * 60 * 1000);
       return () => clearTimeout(timer);
     };
 
