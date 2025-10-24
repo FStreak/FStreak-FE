@@ -3,14 +3,14 @@ import LessonSidebar from "@/components/lesson/LessonSidebar";
 
 interface LessonLayoutProps {
   children: ReactNode;
-  params: Promise<{ id: string }>; // ✅ Next.js 15: params là Promise
+  params: Promise<{ id: string }>;
 }
 
 export default async function LessonLayout({
   children,
   params,
 }: LessonLayoutProps) {
-  const { id } = await params; // ✅ Bắt buộc phải await
+  const { id } = await params;
   const base = `/lessons/${id}`;
 
   return (
