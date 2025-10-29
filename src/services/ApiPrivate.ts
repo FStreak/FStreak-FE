@@ -11,6 +11,8 @@ import type { UserProfile } from "../model/authModel/authDataType";
 import type { ReminderEntry } from "../model/reminder/reminderTypes";
 import type { StreakDetail, StreakLeaderboardResponse, CheckInRequest  } from "@/model/streak/streakTypes";
 import type { LogoutRequest, LogoutResponse } from "@/model/authModel/authDataType";
+import type { Lesson, LessonFormData } from "@/model/lesson/lessonTypes";
+
 export const privateApiService = {
   // ============ USER APIs ============
   /** Get current user profile */
@@ -193,6 +195,59 @@ export const privateApiService = {
       "/auth/logout",
       logoutInfo
     );
+    return wrapResponse(response);
+  },
+
+  // ============ LESSONS APIs ============
+  /** Get all lessons for a specific teacher */
+  getLessonsByTeacher: async (teacherId: string): Promise<Lesson[]> => {
+    const response = await apiService.privateApiClient.get<Lesson[]>(`/Lessons/teacher/${teacherId}`);
+    return wrapResponse(response);
+  },
+
+  /** Get a single lesson by ID */
+  getLessonById: async (lessonId: string): Promise<Lesson> => {
+    const response = await apiService.privateApiClient.get<Lesson>(`/Lessons/${lessonId}`);
+    return wrapResponse(response);
+  },
+
+  /** Create a new lesson */
+  createLesson: async (formData: LessonFormData): Promise<Lesson> => {
+    const form = new FormData();
+    form.append("Title", formData.title);
+    if (formData.description) form.append("Description", formData.description);
+    if (formData.startAt) form.append("StartAt", formData.startAt);
+    if (formData.durationMinutes) form.append("DurationMinutes", formData.durationMinutes.toString());
+    form.append("IsPublished", formData.isPublished.toString());
+    if (formData.documentFile) form.append("DocumentFile", formData.documentFile);
+    if (formData.videoFile) form.append("VideoFile", formData.videoFile);
+
+    const response = await apiService.privateApiClient.post<Lesson>("/Lessons", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return wrapResponse(response);
+  },
+
+  /** Update an existing lesson */
+  updateLesson: async (lessonId: string, formData: LessonFormData): Promise<Lesson> => {
+    const form = new FormData();
+    form.append("Title", formData.title);
+    if (formData.description) form.append("Description", formData.description);
+    if (formData.startAt) form.append("StartAt", formData.startAt);
+    if (formData.durationMinutes) form.append("DurationMinutes", formData.durationMinutes.toString());
+    form.append("IsPublished", formData.isPublished.toString());
+    if (formData.documentFile) form.append("DocumentFile", formData.documentFile);
+    if (formData.videoFile) form.append("VideoFile", formData.videoFile);
+
+    const response = await apiService.privateApiClient.put<Lesson>(`/Lessons/${lessonId}`, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return wrapResponse(response);
+  },
+
+  /** Delete a lesson */
+  deleteLesson: async (lessonId: string): Promise<void> => {
+    const response = await apiService.privateApiClient.delete<void>(`/Lessons/${lessonId}`);
     return wrapResponse(response);
   },
 };

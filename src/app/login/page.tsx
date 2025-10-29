@@ -7,6 +7,12 @@ import { publicApiService } from "@/services/ApiPublic";
 import { useTokenInfoStorage } from "@/store/authStore";
 import type { AxiosError } from "axios";
 import { showSuccess, showError, showLoading } from "@/lib/toast";
+import { isTeacher } from "@/utils/auth";
+
+// Debug utility (only for development)
+if (process.env.NODE_ENV === 'development') {
+  import('@/utils/debugAuth');
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -34,8 +40,24 @@ export default function LoginPage() {
         // Lưu thông tin user vào localStorage nếu cần
         localStorage.setItem("user", JSON.stringify(data.user));
         localStorage.setItem("loginTime", Date.now().toString());
+        
+        // 🔍 Debug token info (development only)
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔐 Login successful - Token info:');
+          console.log('User roles from response:', data.user.roles);
+          console.log('Is teacher from token?', isTeacher(data.accessToken));
+        }
+        
         showSuccess(`Chào mừng ${data.user.firstName}! 🔥`);
-        router.push("/");
+        
+        // ✅ Redirect dựa theo role - Use setTimeout to ensure store is updated
+        const targetPath = isTeacher(data.accessToken) ? "/teacher" : "/dashboard";
+        console.log(`✅ Redirecting to ${targetPath}`);
+        
+        // Small delay to ensure Zustand store is fully updated
+        setTimeout(() => {
+          router.replace(targetPath);
+        }, 100);
       } else {
         showError(data.message || "Đăng nhập thất bại 😢");
       }

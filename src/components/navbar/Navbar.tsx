@@ -10,6 +10,7 @@ import {
   CreditCard,
   Bell,
   PawPrint, // 🐾 Thêm icon cho mascot
+  GraduationCap, // 🎓 Thêm icon cho teacher
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -18,6 +19,7 @@ import { privateApiService } from "@/services/ApiPrivate";
 import { useEffect, useState, useRef } from "react";
 import type { ReminderEntry } from "@/model/reminder/reminderTypes";
 import UserDropdown from "./UserDropdown";
+import { isTeacher } from "@/utils/auth";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -85,6 +87,19 @@ export default function Navbar() {
               {label}
             </Link>
           ))}
+          
+          {/* 🎓 Teacher Dashboard Link - Only visible for teachers */}
+          {token && isTeacher(token) && (
+            <Link
+              href="/teacher"
+              className={`flex items-center gap-1.5 transition-colors ${
+                isActive("/teacher") ? "text-orange-500" : "hover:text-orange-500"
+              }`}
+            >
+              <GraduationCap className="w-4 h-4" />
+              Teacher
+            </Link>
+          )}
         </div>
 
         <ThemeToggle />
