@@ -11,6 +11,9 @@ import {
   Bell,
   PawPrint, // 🐾 Thêm icon cho mascot
   GraduationCap, // 🎓 Thêm icon cho teacher
+  Trophy, // 🏆 Thêm icon cho leaderboard
+  UserPlus, // 👥 Thêm icon cho friends
+  MessageCircle, // 💬 Thêm icon cho messages
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -19,6 +22,7 @@ import { privateApiService } from "@/services/ApiPrivate";
 import { useEffect, useState, useRef } from "react";
 import type { ReminderEntry } from "@/model/reminder/reminderTypes";
 import UserDropdown from "./UserDropdown";
+import LeaderboardDropdown from "./LeaderboardDropdown";
 import { isTeacher } from "@/utils/auth";
 
 export default function Navbar() {
@@ -72,7 +76,10 @@ export default function Navbar() {
             { href: "/", icon: Home, label: "Home" },
             { href: "/lessons", icon: BookOpen, label: "Lessons" },
             { href: "/classrooms", icon: Users2, label: "Classrooms" },
+            { href: "/friends", icon: UserPlus, label: "Friends" }, // 👥 Thêm tab friends
+            { href: "/messages", icon: MessageCircle, label: "Messages" }, // 💬 Thêm tab messages
             { href: "/studyWall", icon: FileText, label: "StudyWall" },
+            { href: "/leaderboard", icon: Trophy, label: "Leaderboard" }, // 🏆 Thêm tab leaderboard
             { href: "/mascot", icon: PawPrint, label: "Mascot" }, // 🐾 Thêm tab mới
             { href: "/plans", icon: CreditCard, label: "Plans" },
           ].map(({ href, icon: Icon, label }) => (
@@ -103,6 +110,9 @@ export default function Navbar() {
         </div>
 
         <ThemeToggle />
+
+        {/* 🏆 Leaderboard */}
+        {token && <LeaderboardDropdown />}
 
         {/* 🔔 Notifications */}
         {token && (

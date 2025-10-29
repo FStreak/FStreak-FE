@@ -12,6 +12,23 @@ import type { ReminderEntry } from "../model/reminder/reminderTypes";
 import type { StreakDetail, StreakLeaderboardResponse, CheckInRequest  } from "@/model/streak/streakTypes";
 import type { LogoutRequest, LogoutResponse } from "@/model/authModel/authDataType";
 import type { Lesson, LessonFormData } from "@/model/lesson/lessonTypes";
+import type { 
+  Friend, 
+  FriendRequest, 
+  SendFriendRequestDto, 
+  RespondFriendRequestDto, 
+  FriendListResponse, 
+  FriendRequestsResponse 
+} from "@/model/friends/friendTypes";
+import type { 
+  Message, 
+  Conversation, 
+  SendMessageDto, 
+  GetMessagesDto, 
+  ConversationsResponse, 
+  MessagesResponse, 
+  MarkAsReadDto 
+} from "@/model/messages/messageTypes";
 
 export const privateApiService = {
   // ============ USER APIs ============
@@ -37,6 +54,12 @@ export const privateApiService = {
 
       throw err;
     }
+  },
+
+  /** Get all users (for search functionality) */
+  getAllUsers: async (): Promise<UserProfile[]> => {
+    const response = await apiService.privateApiClient.get<UserProfile[]>(`/users`);
+    return wrapResponse(response);
   },
   // ============ REMINDERS APIs ============
   /** Get all reminders for current user */
@@ -85,6 +108,7 @@ export const privateApiService = {
   return wrapResponse(response);
   },
 
+
   /** Check in (đánh dấu học hôm nay) */
   checkInStreak: async (body: { date: string; source: number }): Promise<StreakDetail> => {
   const response = await apiService.privateApiClient.post<StreakDetail>(
@@ -95,11 +119,21 @@ export const privateApiService = {
 },
 
 
-  /** Get leaderboard by period (e.g. 7 or 30 days) */
-  getStreakLeaderboard: async (period: number): Promise<StreakLeaderboardResponse> => {
-    const response = await apiService.privateApiClient.get<StreakLeaderboardResponse>(
-    `/streaks/leaderboard?period=${period}`
-    );
+  /** Get streak leaderboard with filters
+   * @param scope - 0: Global, 1: Group (school/club)
+   * @param period - 0: AllTime, 1: Weekly
+   * @param groupId - Optional group ID for scope=1
+   */
+  getStreakLeaderboard: async (
+    scope: 0 | 1 = 0, 
+    period: 0 | 1 = 0, 
+    groupId?: number
+  ): Promise<StreakLeaderboardResponse> => {
+    let url = `/Streaks/leaderboard?scope=${scope}&period=${period}`;
+    if (groupId !== undefined) {
+      url += `&groupId=${groupId}`;
+    }
+    const response = await apiService.privateApiClient.get<StreakLeaderboardResponse>(url);
     return wrapResponse(response);
   },
   // ============ STUDY ROOM APIs ============
@@ -249,6 +283,86 @@ export const privateApiService = {
   deleteLesson: async (lessonId: string): Promise<void> => {
     const response = await apiService.privateApiClient.delete<void>(`/Lessons/${lessonId}`);
     return wrapResponse(response);
+  },
+
+  // ============ FRIENDS APIs ============
+  
+  /** Get list of friends */
+  getFriends: async (): Promise<FriendListResponse> => {
+    const response = await apiService.privateApiClient.get<FriendListResponse>("/friends");
+    return wrapResponse(response);
+  },
+
+  /** Get friend requests (sent and received) */
+  getFriendRequests: async (): Promise<FriendRequestsResponse> => {
+    const response = await apiService.privateApiClient.get<FriendRequestsResponse>("/friends/requests");
+    return wrapResponse(response);
+  },
+
+  /** Send friend request */
+  sendFriendRequest: async (data: SendFriendRequestDto): Promise<FriendRequest> => {
+    const response = await apiService.privateApiClient.post<FriendRequest>("/friends/request", data);
+    return wrapResponse(response);
+  },
+
+  /** Accept or reject friend request */
+  respondToFriendRequest: async (data: RespondFriendRequestDto): Promise<FriendRequest> => {
+    const response = await apiService.privateApiClient.post<FriendRequest>("/friends/respond", data);
+    return wrapResponse(response);
+  },
+
+  /** Unfriend a user */
+  unfriend: async (friendId: string): Promise<void> => {
+    const response = await apiService.privateApiClient.delete<void>(`/friends/${friendId}`);
+    return wrapResponse(response);
+  },
+
+  /** Cancel friend request */
+  cancelFriendRequest: async (requestId: string): Promise<void> => {
+    const response = await apiService.privateApiClient.delete<void>(`/friends/request/${requestId}`);
+    return wrapResponse(response);
+  },
+
+  // ============ MESSAGING APIs ============
+  
+  /** Get all conversations */
+  getConversations: async (): Promise<ConversationsResponse> => {
+    const response = await apiService.privateApiClient.get<ConversationsResponse>("/messages/conversations");
+    return wrapResponse(response);
+  },
+
+  /** Get messages in a conversation */
+  getMessages: async (params: GetMessagesDto): Promise<MessagesResponse> => {
+    const { conversationId, page = 1, pageSize = 50 } = params;
+    const response = await apiService.privateApiClient.get<MessagesResponse>(
+      `/messages/conversation/${conversationId}?page=${page}&pageSize=${pageSize}`
+    );
+    return wrapResponse(response);
+  },
+
+  /** Send a message */
+  sendMessage: async (data: SendMessageDto): Promise<Message> => {
+    const response = await apiService.privateApiClient.post<Message>("/messages/send", data);
+    return wrapResponse(response);
+  },
+
+  /** Mark messages as read */
+  markMessagesAsRead: async (data: MarkAsReadDto): Promise<void> => {
+    const response = await apiService.privateApiClient.post<void>("/messages/mark-read", data);
+    return wrapResponse(response);
+  },
+
+  /** Delete a message */
+  deleteMessage: async (messageId: string): Promise<void> => {
+    const response = await apiService.privateApiClient.delete<void>(`/messages/${messageId}`);
+    return wrapResponse(response);
+  },
+
+  /** Get unread message count */
+  getUnreadCount: async (): Promise<number> => {
+    const response = await apiService.privateApiClient.get<{ count: number }>("/messages/unread-count");
+    const data = wrapResponse(response);
+    return data.count;
   },
 };
 
