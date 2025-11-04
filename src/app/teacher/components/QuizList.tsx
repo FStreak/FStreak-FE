@@ -180,3 +180,8 @@ export function QuizList({ quizzes, onEdit, onDelete, onViewResults }: QuizListP
 
 
 
+<<<<<<< Updated upstream
+=======
+
+
+>>>>>>> Stashed changes

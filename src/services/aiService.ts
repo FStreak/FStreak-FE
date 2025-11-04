@@ -185,3 +185,8 @@ export default aiService;
 
 
 
+<<<<<<< Updated upstream
+=======
+
+
+>>>>>>> Stashed changes

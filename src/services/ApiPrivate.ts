@@ -12,14 +12,13 @@ import type { ReminderEntry } from "../model/reminder/reminderTypes";
 import type { StreakDetail, StreakLeaderboardResponse, CheckInRequest  } from "@/model/streak/streakTypes";
 import type { LogoutRequest, LogoutResponse } from "@/model/authModel/authDataType";
 import type { Lesson, LessonFormData } from "@/model/lesson/lessonTypes";
-import type { 
-  Friend, 
-  FriendRequest, 
-  SendFriendRequestDto, 
-  RespondFriendRequestDto, 
-  FriendListResponse, 
-  FriendRequestsResponse 
-} from "@/model/friends/friendTypes";
+import type {
+  Friend,
+  FriendRequest,
+  SendFriendRequestDTO,
+  RespondFriendRequestDTO,
+  FriendStatusResponse,
+} from "@/model/friend/friendTypes";
 import type { 
   Message, 
   Conversation, 
@@ -286,40 +285,57 @@ export const privateApiService = {
   },
 
   // ============ FRIENDS APIs ============
-  
-  /** Get list of friends */
-  getFriends: async (): Promise<FriendListResponse> => {
-    const response = await apiService.privateApiClient.get<FriendListResponse>("/friends");
+  /** Get all friends */
+  getFriends: async (): Promise<Friend[]> => {
+    const response = await apiService.privateApiClient.get<Friend[]>("/friends");
     return wrapResponse(response);
   },
 
   /** Get friend requests (sent and received) */
-  getFriendRequests: async (): Promise<FriendRequestsResponse> => {
-    const response = await apiService.privateApiClient.get<FriendRequestsResponse>("/friends/requests");
+  getFriendRequests: async (): Promise<FriendRequest[]> => {
+    const response = await apiService.privateApiClient.get<FriendRequest[]>("/friends/requests");
     return wrapResponse(response);
   },
 
   /** Send friend request */
-  sendFriendRequest: async (data: SendFriendRequestDto): Promise<FriendRequest> => {
-    const response = await apiService.privateApiClient.post<FriendRequest>("/friends/request", data);
+  sendFriendRequest: async (data: SendFriendRequestDTO): Promise<FriendRequest> => {
+    const response = await apiService.privateApiClient.post<FriendRequest>(
+      "/friends/request",
+      data
+    );
     return wrapResponse(response);
   },
 
-  /** Accept or reject friend request */
-  respondToFriendRequest: async (data: RespondFriendRequestDto): Promise<FriendRequest> => {
-    const response = await apiService.privateApiClient.post<FriendRequest>("/friends/respond", data);
+  /** Accept or decline friend request */
+  respondFriendRequest: async (data: RespondFriendRequestDTO): Promise<void> => {
+    const response = await apiService.privateApiClient.post<void>(
+      "/friends/respond",
+      data
+    );
     return wrapResponse(response);
   },
 
-  /** Unfriend a user */
-  unfriend: async (friendId: string): Promise<void> => {
-    const response = await apiService.privateApiClient.delete<void>(`/friends/${friendId}`);
+  /** Delete/unfriend a friend */
+  deleteFriend: async (friendshipId: number): Promise<void> => {
+    const response = await apiService.privateApiClient.delete<void>(
+      `/friends/${friendshipId}`
+    );
     return wrapResponse(response);
   },
 
-  /** Cancel friend request */
-  cancelFriendRequest: async (requestId: string): Promise<void> => {
-    const response = await apiService.privateApiClient.delete<void>(`/friends/request/${requestId}`);
+  /** Cancel/delete a friend request */
+  cancelFriendRequest: async (requestId: number): Promise<void> => {
+    const response = await apiService.privateApiClient.delete<void>(
+      `/friends/request/${requestId}`
+    );
+    return wrapResponse(response);
+  },
+
+  /** Check friend status with a user */
+  getFriendStatus: async (targetUserId: string): Promise<FriendStatusResponse> => {
+    const response = await apiService.privateApiClient.get<FriendStatusResponse>(
+      `/friends/status/${targetUserId}`
+    );
     return wrapResponse(response);
   },
 

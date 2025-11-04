@@ -234,3 +234,8 @@ export function AIQuizGenerator({ lesson, onQuizGenerated }: AIQuizGeneratorProp
 
 
 
+<<<<<<< Updated upstream
+=======
+
+
+>>>>>>> Stashed changes
