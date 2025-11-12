@@ -29,6 +29,21 @@ export const showPromise = async <T>(
   });
 };
 
+/** 🎯 Generic toast function that accepts message and type */
+export const showToast = (message: string, type: "success" | "error" | "info" | "loading" = "info") => {
+  switch (type) {
+    case "success":
+      return showSuccess(message);
+    case "error":
+      return showError(message);
+    case "loading":
+      return showLoading(message);
+    case "info":
+    default:
+      return showInfo(message);
+  }
+};
+
 // Export a toast object with common methods for easier usage
 export const toast = {
   success: showSuccess,
