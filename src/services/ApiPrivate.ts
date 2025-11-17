@@ -301,13 +301,22 @@ export const privateApiService = {
 
   /** Send friend request */
   sendFriendRequest: async (data: SendFriendRequestDto): Promise<FriendRequest> => {
-    const response = await apiService.privateApiClient.post<FriendRequest>("/friends/request", data);
+    // Convert to PascalCase for .NET backend compatibility
+    const requestBody = {
+      ReceiverId: data.receiverId
+    };
+    const response = await apiService.privateApiClient.post<FriendRequest>("/friends/request", requestBody);
     return wrapResponse(response);
   },
 
   /** Accept or reject friend request */
   respondToFriendRequest: async (data: RespondFriendRequestDto): Promise<FriendRequest> => {
-    const response = await apiService.privateApiClient.post<FriendRequest>("/friends/respond", data);
+    // Convert to PascalCase for .NET backend compatibility
+    const requestBody = {
+      RequestId: data.requestId,
+      Accept: data.accept
+    };
+    const response = await apiService.privateApiClient.post<FriendRequest>("/friends/respond", requestBody);
     return wrapResponse(response);
   },
 

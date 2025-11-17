@@ -53,13 +53,19 @@ export default function UserSearchForFriends() {
   const handleSendRequest = async (userId: string, userName: string) => {
     try {
       setSendingTo(userId);
-      await privateApiService.sendFriendRequest({ receiverId: userId });
+      const response = await privateApiService.sendFriendRequest({ receiverId: userId });
+      console.log("Friend request sent successfully:", response);
       showToast(`Đã gửi lời mời kết bạn đến ${userName}`, "success");
       // Remove from results after sending
       setResults(results.filter((u) => u.id !== userId));
     } catch (error: any) {
       console.error("Error sending friend request:", error);
-      const message = error.response?.data?.message || "Không thể gửi lời mời kết bạn";
+      console.error("Error details:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      const message = error.response?.data?.message || error.response?.data?.title || error.message || "Không thể gửi lời mời kết bạn";
       showToast(message, "error");
     } finally {
       setSendingTo(null);
