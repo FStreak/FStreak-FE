@@ -7,7 +7,7 @@ import type { Friend } from "@/model/friends/friendTypes";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Users, MessageCircle, UserMinus, Loader2 } from "lucide-react";
-import { showToast } from "@/lib/toast";
+import { toast } from "@/lib/toast";
 
 export default function FriendList() {
   const router = useRouter();
@@ -46,7 +46,7 @@ export default function FriendList() {
     } catch (error) {
       console.error("Error fetching friends:", error);
       if (showLoading) {
-        showToast("Không thể tải danh sách bạn bè", "error");
+        toast.error("Không thể tải danh sách bạn bè");
       }
     } finally {
       if (showLoading) setLoading(false);
@@ -60,10 +60,10 @@ export default function FriendList() {
       setUnfriendingId(friendId);
       await privateApiService.unfriend(friendId);
       setFriends(friends.filter((f) => f.friendId !== friendId));
-      showToast("Đã hủy kết bạn", "success");
+      toast.success("Đã hủy kết bạn");
     } catch (error) {
       console.error("Error unfriending:", error);
-      showToast("Không thể hủy kết bạn", "error");
+      toast.error("Không thể hủy kết bạn");
     } finally {
       setUnfriendingId(null);
     }

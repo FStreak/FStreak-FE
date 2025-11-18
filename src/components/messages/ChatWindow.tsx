@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Send, Loader2, MessageCircle } from "lucide-react";
-import { showToast } from "@/lib/toast";
+import { toast } from "@/lib/toast";
 
 interface ChatWindowProps {
   conversation: Conversation | null;
@@ -59,7 +59,7 @@ export default function ChatWindow({ conversation }: ChatWindowProps) {
       }
     } catch (error) {
       console.error("Error fetching messages:", error);
-      showToast("Không thể tải tin nhắn", "error");
+      toast.error("Không thể tải tin nhắn");
     } finally {
       setLoading(false);
     }
@@ -86,7 +86,7 @@ export default function ChatWindow({ conversation }: ChatWindowProps) {
       inputRef.current?.focus();
     } catch (error) {
       console.error("Error sending message:", error);
-      showToast("Không thể gửi tin nhắn", "error");
+      toast.error("Không thể gửi tin nhắn");
     } finally {
       setSending(false);
     }

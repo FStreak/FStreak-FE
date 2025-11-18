@@ -7,7 +7,7 @@ import { FriendshipStatus } from "@/model/friends/friendTypes";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Check, X, Loader2, UserPlus, Clock } from "lucide-react";
-import { showToast } from "@/lib/toast";
+import { toast } from "@/lib/toast";
 
 export default function FriendRequests() {
   const [received, setReceived] = useState<FriendRequest[]>([]);
@@ -112,7 +112,7 @@ export default function FriendRequests() {
     } catch (error) {
       console.error("Error fetching friend requests:", error);
       if (showLoading) {
-        showToast("Không thể tải lời mời kết bạn", "error");
+        toast.error("Không thể tải lời mời kết bạn");
       }
     } finally {
       if (showLoading) setLoading(false);
@@ -132,7 +132,7 @@ export default function FriendRequests() {
       // Trigger event to notify FriendList to refresh
       window.dispatchEvent(new CustomEvent('friendRequestAccepted'));
       
-      showToast("Đã chấp nhận lời mời kết bạn", "success");
+      toast.success("Đã chấp nhận lời mời kết bạn");
     } catch (error: any) {
       console.error("Error accepting request:", error);
       console.error("Error details:", {
@@ -142,7 +142,7 @@ export default function FriendRequests() {
         requestId: requestId
       });
       const message = error.response?.data?.message || error.response?.data?.title || error.message || "Không thể chấp nhận lời mời";
-      showToast(message, "error");
+      toast.error(message);
     } finally {
       setRespondingId(null);
     }
@@ -157,7 +157,7 @@ export default function FriendRequests() {
       
       // Refresh the list after rejecting
       await fetchRequests(false);
-      showToast("Đã từ chối lời mời kết bạn", "success");
+      toast.success("Đã từ chối lời mời kết bạn");
     } catch (error: any) {
       console.error("Error rejecting request:", error);
       console.error("Error details:", {
@@ -167,7 +167,7 @@ export default function FriendRequests() {
         requestId: requestId
       });
       const message = error.response?.data?.message || error.response?.data?.title || error.message || "Không thể từ chối lời mời";
-      showToast(message, "error");
+      toast.error(message);
     } finally {
       setRespondingId(null);
     }
@@ -178,10 +178,10 @@ export default function FriendRequests() {
       setCancelingId(requestId);
       await privateApiService.cancelFriendRequest(requestId);
       setSent(sent.filter((r) => r.id !== requestId));
-      showToast("Đã hủy lời mời kết bạn", "success");
+      toast.success("Đã hủy lời mời kết bạn");
     } catch (error) {
       console.error("Error canceling request:", error);
-      showToast("Không thể hủy lời mời", "error");
+      toast.error("Không thể hủy lời mời");
     } finally {
       setCancelingId(null);
     }

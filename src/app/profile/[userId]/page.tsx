@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useTokenInfoStorage } from "@/store/authStore";
 import { MessageCircle, UserPlus, Loader2 } from "lucide-react";
-import { showToast } from "@/lib/toast";
+import { toast } from "@/lib/toast";
 
 export default function UserProfilePage() {
   const params = useParams();
@@ -83,11 +83,11 @@ export default function UserProfilePage() {
       setSendingRequest(true);
       await privateApiService.sendFriendRequest({ receiverId: userId });
       setFriendshipStatus("pending");
-      showToast("Đã gửi lời mời kết bạn", "success");
+      toast.success("Đã gửi lời mời kết bạn");
     } catch (error: any) {
       console.error("Error sending friend request:", error);
       const message = error.response?.data?.message || "Không thể gửi lời mời kết bạn";
-      showToast(message, "error");
+      toast.error(message);
     } finally {
       setSendingRequest(false);
     }

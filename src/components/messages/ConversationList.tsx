@@ -5,7 +5,7 @@ import { privateApiService } from "@/services/ApiPrivate";
 import type { Conversation } from "@/model/messages/messageTypes";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, MessageCircle } from "lucide-react";
-import { showToast } from "@/lib/toast";
+import { toast } from "@/lib/toast";
 
 interface ConversationListProps {
   onSelectConversation: (conversation: Conversation) => void;
@@ -27,7 +27,7 @@ export default function ConversationList({ onSelectConversation, selectedConvers
       setConversations(response.conversations || []);
     } catch (error) {
       console.error("Error fetching conversations:", error);
-      showToast("Không thể tải danh sách hội thoại", "error");
+      toast.error("Không thể tải danh sách hội thoại");
     } finally {
       setLoading(false);
     }

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Search, UserPlus, Loader2 } from "lucide-react";
-import { showToast } from "@/lib/toast";
+import { toast } from "@/lib/toast";
 
 export default function UserSearchForFriends() {
   const router = useRouter();
@@ -56,7 +56,7 @@ export default function UserSearchForFriends() {
       console.log("Sending friend request to:", userId);
       const response = await privateApiService.sendFriendRequest({ receiverId: userId });
       console.log("Friend request sent successfully:", response);
-      showToast(`Đã gửi lời mời kết bạn đến ${userName}`, "success");
+      toast.success(`Đã gửi lời mời kết bạn đến ${userName}`);
       // Remove from results after sending
       setResults(results.filter((u) => u.id !== userId));
       
@@ -78,7 +78,7 @@ export default function UserSearchForFriends() {
         if (errorMessage.toLowerCase().includes("already") || 
             errorMessage.toLowerCase().includes("duplicate") ||
             errorMessage.toLowerCase().includes("exists")) {
-          showToast(`Đã gửi lời mời kết bạn đến ${userName} trước đó rồi`, "info");
+          toast.info(`Đã gửi lời mời kết bạn đến ${userName} trước đó rồi`);
           // Still remove from results and refresh
           setResults(results.filter((u) => u.id !== userId));
           window.dispatchEvent(new CustomEvent('friendRequestSent'));
@@ -88,7 +88,7 @@ export default function UserSearchForFriends() {
       }
       
       const message = error.response?.data?.message || error.response?.data?.title || error.message || "Không thể gửi lời mời kết bạn";
-      showToast(message, "error");
+      toast.error(message);
     } finally {
       setSendingTo(null);
     }
