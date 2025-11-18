@@ -84,9 +84,9 @@ export default function FriendRequests() {
       // Filter to only show PENDING requests
       // Backend returns status as string "Pending" (capital P, rest lowercase)
       const pendingReceived = (receivedList || []).filter((req: FriendRequest) => {
-        const status = req.status;
+        const status = req.status as any; // Backend may return string or number
         // Handle all possible formats: number 0, string "0", "PENDING", "Pending", "pending", or enum
-        if (status === 0 || status === "0" || status === FriendshipStatus.PENDING) return true;
+        if (status === 0 || status === FriendshipStatus.PENDING) return true;
         if (typeof status === "string") {
           const statusUpper = status.toUpperCase();
           return statusUpper === "PENDING" || statusUpper === "0";
@@ -94,9 +94,9 @@ export default function FriendRequests() {
         return false;
       });
       const pendingSent = (sentList || []).filter((req: FriendRequest) => {
-        const status = req.status;
+        const status = req.status as any; // Backend may return string or number
         // Handle all possible formats: number 0, string "0", "PENDING", "Pending", "pending", or enum
-        if (status === 0 || status === "0" || status === FriendshipStatus.PENDING) return true;
+        if (status === 0 || status === FriendshipStatus.PENDING) return true;
         if (typeof status === "string") {
           const statusUpper = status.toUpperCase();
           return statusUpper === "PENDING" || statusUpper === "0";
