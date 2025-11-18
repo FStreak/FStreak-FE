@@ -33,7 +33,7 @@ export interface RegisterType {
   confirmPassword: string;
 }
 
-/** User profile returned from /users/me */
+/** User profile returned from /users/me or /users/{id} */
 export interface UserProfile {
   id: string;
   userName: string;
@@ -45,6 +45,7 @@ export interface UserProfile {
   isDeleted: boolean;
   currentStreak: number;
   longestStreak: number;
+  roles?: string[]; // Optional roles array
 }
 
 /** Dữ liệu trả về sau khi đăng ký */

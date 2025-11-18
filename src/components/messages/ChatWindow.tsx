@@ -23,7 +23,13 @@ export default function ChatWindow({ conversation }: ChatWindowProps) {
 
   useEffect(() => {
     if (conversation) {
-      fetchMessages();
+      // Don't fetch messages if it's a temporary conversation (not created yet)
+      if (conversation.id && !conversation.id.startsWith("temp-")) {
+        fetchMessages();
+      } else {
+        setMessages([]);
+        setLoading(false);
+      }
     } else {
       setMessages([]);
     }
@@ -34,7 +40,7 @@ export default function ChatWindow({ conversation }: ChatWindowProps) {
   }, [messages]);
 
   const fetchMessages = async () => {
-    if (!conversation) return;
+    if (!conversation || conversation.id?.startsWith("temp-")) return;
 
     try {
       setLoading(true);
@@ -68,6 +74,13 @@ export default function ChatWindow({ conversation }: ChatWindowProps) {
         receiverId: conversation.otherUserId,
         content: messageText.trim(),
       });
+      
+      // If this was a temp conversation, the backend created a real one
+      // Trigger event to refresh conversations list
+      if (conversation.id?.startsWith("temp-")) {
+        window.dispatchEvent(new CustomEvent('conversationCreated'));
+      }
+      
       setMessages([...messages, newMessage]);
       setMessageText("");
       inputRef.current?.focus();

@@ -61,6 +61,26 @@ export const privateApiService = {
     const response = await apiService.privateApiClient.get<UserProfile[]>(`/users`);
     return wrapResponse(response);
   },
+
+  /** Get user by ID */
+  getUserById: async (userId: string): Promise<UserProfile> => {
+    try {
+      // Try direct endpoint first
+      const response = await apiService.privateApiClient.get<UserProfile>(`/users/${userId}`);
+      return wrapResponse(response);
+    } catch (error: any) {
+      // If 404, try getting from all users
+      if (error.response?.status === 404) {
+        const allUsers = await privateApiService.getAllUsers();
+        const user = allUsers.find(u => u.id === userId);
+        if (user) {
+          return user;
+        }
+        throw new Error("User not found");
+      }
+      throw error;
+    }
+  },
   // ============ REMINDERS APIs ============
   /** Get all reminders for current user */
   getReminders: async (): Promise<ReminderEntry[]> => {
@@ -289,35 +309,259 @@ export const privateApiService = {
   
   /** Get list of friends */
   getFriends: async (): Promise<FriendListResponse> => {
-    const response = await apiService.privateApiClient.get<FriendListResponse>("/friends");
-    return wrapResponse(response);
+    const response = await apiService.privateApiClient.get<any>("/friends");
+    const data = wrapResponse(response);
+    console.log("Raw friends response:", data);
+    console.log("Response type:", typeof data);
+    console.log("Is array:", Array.isArray(data));
+    
+    // Handle both formats: array directly or object with friends property
+    let friends: Friend[] = [];
+    let total = 0;
+    
+    if (Array.isArray(data)) {
+      // Backend returns array directly
+      friends = data;
+      total = data.length;
+    } else {
+      // Backend returns object with friends property
+      friends = data.friends || data.Friends || data.data || [];
+      total = data.total || data.Total || friends.length;
+    }
+    
+    // Normalize each friend object to ensure properties are in camelCase
+    // Backend returns: {friendshipId, userId, userName, email, avatarUrl, ...}
+    // We need to fetch user profiles to get firstName and lastName
+    
+    // Fetch all users once (more efficient than fetching for each friend)
+    let allUsers: any[] = [];
+    try {
+      allUsers = await privateApiService.getAllUsers();
+      console.log("Fetched all users once:", allUsers.length);
+      if (allUsers.length > 0) {
+        console.log("Sample user from getAllUsers:", allUsers[0]);
+        console.log("Sample user keys:", Object.keys(allUsers[0]));
+      }
+    } catch (error) {
+      console.log("Could not fetch all users:", error);
+    }
+    
+    friends = friends.map((friend: any) => {
+      console.log("Raw friend object before normalize:", friend);
+      console.log("All keys in friend object:", Object.keys(friend));
+      
+      // Backend returns: {friendshipId, userId, userName, email, avatarUrl, ...}
+      const friendUserId = friend.userId || friend.UserId || friend.friendId || friend.FriendId;
+      
+      let firstName = null;
+      let lastName = null;
+      let friendName = null;
+      
+      // Try to get from friend object first
+      firstName = friend.firstName || friend.FirstName || friend.friendFirstName || friend.FriendFirstName;
+      lastName = friend.lastName || friend.LastName || friend.friendLastName || friend.FriendLastName;
+      
+      // If not found, try to get from allUsers cache
+      if ((!firstName || !lastName) && allUsers.length > 0) {
+        const userInfo = allUsers.find((u: any) => {
+          const userId = u.id || u.Id || u.userId || u.UserId;
+          return userId === friendUserId;
+        });
+        
+        if (userInfo) {
+          console.log("Found user info for", friendUserId, ":", userInfo);
+          firstName = userInfo.firstName || userInfo.FirstName || firstName;
+          lastName = userInfo.lastName || userInfo.LastName || lastName;
+          console.log("Extracted - firstName:", firstName, "lastName:", lastName);
+        } else {
+          console.log("User not found in allUsers for friendUserId:", friendUserId);
+        }
+      }
+      
+      // Build friendName
+      if (firstName && lastName) {
+        friendName = `${firstName} ${lastName}`.trim();
+      } else {
+        friendName = friend.friendName || 
+                    friend.FriendName ||
+                    friend.name ||
+                    friend.Name ||
+                    friend.userName ||
+                    friend.UserName ||
+                    null;
+      }
+      
+      console.log("Extracted firstName:", firstName, "lastName:", lastName);
+      console.log("Extracted friendName:", friendName);
+      
+      return {
+        ...friend,
+        id: friend.id || friend.Id || friend.friendshipId || friend.FriendshipId || friendUserId,
+        userId: friend.userId || friend.UserId,
+        friendId: friendUserId, // Use userId as friendId
+        friendName: friendName,
+        // Keep firstName and lastName for displaying real name
+        firstName: firstName,
+        lastName: lastName,
+        friendUsername: friend.userName || friend.UserName || friend.friendUsername || friend.FriendUsername || friend.username || friend.Username,
+        friendStreak: friend.friendStreak || friend.FriendStreak || friend.streak || friend.Streak || friend.currentStreak || friend.CurrentStreak || 0,
+        friendshipDate: friend.friendshipDate || friend.FriendshipDate || friend.createdAt || friend.CreatedAt,
+        isOnline: friend.isOnline || friend.IsOnline
+      };
+    });
+    
+    const normalized: FriendListResponse = {
+      friends,
+      total
+    };
+    
+    console.log("Normalized friends response:", normalized);
+    console.log("Normalized friends count:", normalized.friends.length);
+    return normalized;
   },
 
   /** Get friend requests (sent and received) */
   getFriendRequests: async (): Promise<FriendRequestsResponse> => {
-    const response = await apiService.privateApiClient.get<FriendRequestsResponse>("/friends/requests");
-    return wrapResponse(response);
+    const response = await apiService.privateApiClient.get<any>("/friends/requests");
+    const data = wrapResponse(response);
+    console.log("Raw friend requests response:", data);
+    console.log("Response type:", typeof data);
+    console.log("Is array:", Array.isArray(data));
+    console.log("Response keys:", Object.keys(data || {}));
+    
+    // Normalize response format - handle both camelCase and PascalCase
+    let received = data.received || data.Received || data.receivedRequests || data.ReceivedRequests || [];
+    let sent = data.sent || data.Sent || data.sentRequests || data.SentRequests || [];
+    
+    // Normalize each request object to ensure id is in camelCase
+    received = received.map((req: any) => ({
+      ...req,
+      id: req.id || req.Id || req.requestId || req.RequestId,
+      senderId: req.senderId || req.SenderId,
+      senderName: req.senderName || req.SenderName,
+      senderUsername: req.senderUsername || req.SenderUsername,
+      receiverId: req.receiverId || req.ReceiverId,
+      receiverName: req.receiverName || req.ReceiverName,
+      receiverUsername: req.receiverUsername || req.ReceiverUsername,
+      status: req.status || req.Status,
+      createdAt: req.createdAt || req.CreatedAt,
+      updatedAt: req.updatedAt || req.UpdatedAt
+    }));
+    
+    sent = sent.map((req: any) => ({
+      ...req,
+      id: req.id || req.Id || req.requestId || req.RequestId,
+      senderId: req.senderId || req.SenderId,
+      senderName: req.senderName || req.SenderName,
+      senderUsername: req.senderUsername || req.SenderUsername,
+      receiverId: req.receiverId || req.ReceiverId,
+      receiverName: req.receiverName || req.ReceiverName,
+      receiverUsername: req.receiverUsername || req.ReceiverUsername,
+      status: req.status || req.Status,
+      createdAt: req.createdAt || req.CreatedAt,
+      updatedAt: req.updatedAt || req.UpdatedAt
+    }));
+    
+    const normalized: FriendRequestsResponse = {
+      received,
+      sent,
+      total: data.total || data.Total || 0
+    };
+    
+    console.log("Normalized response:", normalized);
+    console.log("Sample received request:", received[0]);
+    console.log("Sample sent request:", sent[0]);
+    return normalized;
   },
 
   /** Send friend request */
   sendFriendRequest: async (data: SendFriendRequestDto): Promise<FriendRequest> => {
-    // Convert to PascalCase for .NET backend compatibility
-    const requestBody = {
-      ReceiverId: data.receiverId
+    // Try camelCase first (most .NET APIs use camelCase by default with System.Text.Json)
+    let requestBody = {
+      receiverId: data.receiverId
     };
-    const response = await apiService.privateApiClient.post<FriendRequest>("/friends/request", requestBody);
-    return wrapResponse(response);
+    console.log("Sending friend request with camelCase:", requestBody);
+    
+    try {
+      const response = await apiService.privateApiClient.post<FriendRequest>("/friends/request", requestBody);
+      console.log("Friend request response:", response.data);
+      return wrapResponse(response);
+    } catch (error: any) {
+      // Handle 400 Bad Request - might be duplicate request
+      if (error.response?.status === 400) {
+        const errorMessage = error.response?.data?.message || error.response?.data?.title || "";
+        console.log("400 error received:", errorMessage);
+        
+        // If it's a duplicate request, try to get existing request from backend
+        if (errorMessage.toLowerCase().includes("already") || 
+            errorMessage.toLowerCase().includes("duplicate") ||
+            errorMessage.toLowerCase().includes("exists")) {
+          console.log("Duplicate request detected, fetching existing requests...");
+          // Fetch friend requests to get the existing one
+          const requestsResponse = await privateApiService.getFriendRequests();
+          const existingRequest = requestsResponse.sent?.find(
+            (req) => req.receiverId === data.receiverId && req.status === 0 // PENDING
+          );
+          if (existingRequest) {
+            console.log("Found existing request:", existingRequest);
+            return existingRequest;
+          }
+        }
+        
+        // If camelCase fails with 400, try PascalCase as fallback
+        console.log("Trying PascalCase...");
+        requestBody = {
+          ReceiverId: data.receiverId
+        } as any;
+        try {
+          const response = await apiService.privateApiClient.post<FriendRequest>("/friends/request", requestBody);
+          console.log("Friend request response (PascalCase):", response.data);
+          return wrapResponse(response);
+        } catch (pascalError: any) {
+          // If PascalCase also fails, check if it's duplicate
+          if (pascalError.response?.status === 400) {
+            const requestsResponse = await privateApiService.getFriendRequests();
+            const existingRequest = requestsResponse.sent?.find(
+              (req) => req.receiverId === data.receiverId && req.status === 0
+            );
+            if (existingRequest) {
+              return existingRequest;
+            }
+          }
+          throw pascalError;
+        }
+      }
+      throw error;
+    }
   },
 
   /** Accept or reject friend request */
   respondToFriendRequest: async (data: RespondFriendRequestDto): Promise<FriendRequest> => {
-    // Convert to PascalCase for .NET backend compatibility
-    const requestBody = {
-      RequestId: data.requestId,
-      Accept: data.accept
+    // Try camelCase first
+    let requestBody = {
+      requestId: data.requestId,
+      accept: data.accept
     };
-    const response = await apiService.privateApiClient.post<FriendRequest>("/friends/respond", requestBody);
-    return wrapResponse(response);
+    console.log("Responding to friend request with camelCase:", requestBody);
+    
+    try {
+      const response = await apiService.privateApiClient.post<FriendRequest>("/friends/respond", requestBody);
+      console.log("Friend request response:", response.data);
+      return wrapResponse(response);
+    } catch (error: any) {
+      // If camelCase fails with 400/422, try PascalCase
+      if (error.response?.status === 400 || error.response?.status === 422) {
+        console.log("camelCase failed, trying PascalCase...");
+        requestBody = {
+          RequestId: data.requestId,
+          Accept: data.accept
+        } as any;
+        const response = await apiService.privateApiClient.post<FriendRequest>("/friends/respond", requestBody);
+        console.log("Friend request response (PascalCase):", response.data);
+        return wrapResponse(response);
+      }
+      throw error;
+    }
   },
 
   /** Unfriend a user */

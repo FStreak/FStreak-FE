@@ -53,18 +53,40 @@ export default function UserSearchForFriends() {
   const handleSendRequest = async (userId: string, userName: string) => {
     try {
       setSendingTo(userId);
+      console.log("Sending friend request to:", userId);
       const response = await privateApiService.sendFriendRequest({ receiverId: userId });
       console.log("Friend request sent successfully:", response);
       showToast(`Đã gửi lời mời kết bạn đến ${userName}`, "success");
       // Remove from results after sending
       setResults(results.filter((u) => u.id !== userId));
+      
+      // Trigger a custom event to notify FriendRequests component to refresh
+      window.dispatchEvent(new CustomEvent('friendRequestSent'));
     } catch (error: any) {
       console.error("Error sending friend request:", error);
       console.error("Error details:", {
         status: error.response?.status,
         data: error.response?.data,
-        message: error.message
+        message: error.message,
+        url: error.config?.url,
+        method: error.config?.method
       });
+      
+      // Handle duplicate request gracefully
+      if (error.response?.status === 400) {
+        const errorMessage = error.response?.data?.message || error.response?.data?.title || "";
+        if (errorMessage.toLowerCase().includes("already") || 
+            errorMessage.toLowerCase().includes("duplicate") ||
+            errorMessage.toLowerCase().includes("exists")) {
+          showToast(`Đã gửi lời mời kết bạn đến ${userName} trước đó rồi`, "info");
+          // Still remove from results and refresh
+          setResults(results.filter((u) => u.id !== userId));
+          window.dispatchEvent(new CustomEvent('friendRequestSent'));
+          setSendingTo(null);
+          return;
+        }
+      }
+      
       const message = error.response?.data?.message || error.response?.data?.title || error.message || "Không thể gửi lời mời kết bạn";
       showToast(message, "error");
     } finally {

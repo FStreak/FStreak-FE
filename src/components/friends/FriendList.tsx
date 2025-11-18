@@ -17,18 +17,39 @@ export default function FriendList() {
 
   useEffect(() => {
     fetchFriends();
+    
+    // Auto-refresh every 5 seconds
+    const interval = setInterval(() => {
+      fetchFriends(false); // Don't show loading spinner on auto-refresh
+    }, 5000);
+    
+    // Listen for friend request accepted event to refresh immediately
+    const handleFriendAccepted = () => {
+      console.log("Friend accepted event received, refreshing friends list...");
+      setTimeout(() => fetchFriends(false), 1000); // Wait 1 second for backend to process, don't show loading
+    };
+    window.addEventListener('friendRequestAccepted', handleFriendAccepted);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('friendRequestAccepted', handleFriendAccepted);
+    };
   }, []);
 
-  const fetchFriends = async () => {
+  const fetchFriends = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const response = await privateApiService.getFriends();
+      console.log("Friends fetched:", response);
+      console.log("Friends count:", response.friends?.length || 0);
       setFriends(response.friends || []);
     } catch (error) {
       console.error("Error fetching friends:", error);
-      showToast("Không thể tải danh sách bạn bè", "error");
+      if (showLoading) {
+        showToast("Không thể tải danh sách bạn bè", "error");
+      }
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
@@ -92,28 +113,47 @@ export default function FriendList() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {friends.map((friend) => (
-          <Card key={friend.id} className="hover:shadow-lg transition-shadow">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3 mb-3">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-yellow-400 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-                  {friend.friendName?.[0]?.toUpperCase() || "?"}
+        {friends.map((friend, index) => {
+          // Get real name (firstName + lastName) - same as UserSearchForFriends
+          const firstName = (friend as any).firstName || "";
+          const lastName = (friend as any).lastName || "";
+          
+          // Display name: firstName + lastName (same format as UserSearchForFriends)
+          const displayName = firstName && lastName 
+            ? `${firstName} ${lastName}`.trim()
+            : friend.friendName || friend.friendUsername || "Người dùng";
+          
+          // Get first letter for avatar (use firstName if available)
+          const firstLetter = firstName?.[0]?.toUpperCase() || 
+                             displayName?.[0]?.toUpperCase() || 
+                             friend.friendUsername?.[0]?.toUpperCase() || 
+                             "?";
+          
+          // Ensure unique key - use friendId first, then id, then index as fallback
+          const uniqueKey = friend.friendId || friend.id || `friend-${index}`;
+          
+          return (
+            <Card key={uniqueKey} className="hover:shadow-lg transition-shadow">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-yellow-400 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                    {firstLetter}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <button
+                      onClick={() => handleViewProfile(friend.friendId)}
+                      className="font-semibold text-gray-800 dark:text-gray-100 hover:text-orange-500 truncate block w-full text-left"
+                    >
+                      {displayName}
+                    </button>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                      @{friend.friendUsername || "username"}
+                    </p>
+                    <p className="text-xs text-orange-500 font-medium mt-1">
+                      🔥 {friend.friendStreak || 0} streak
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <button
-                    onClick={() => handleViewProfile(friend.friendId)}
-                    className="font-semibold text-gray-800 dark:text-gray-100 hover:text-orange-500 truncate block w-full text-left"
-                  >
-                    {friend.friendName}
-                  </button>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                    @{friend.friendUsername}
-                  </p>
-                  <p className="text-xs text-orange-500 font-medium mt-1">
-                    🔥 {friend.friendStreak} streak
-                  </p>
-                </div>
-              </div>
 
               <div className="flex gap-2">
                 <Button
@@ -128,7 +168,7 @@ export default function FriendList() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => handleUnfriend(friend.friendId, friend.friendName)}
+                  onClick={() => handleUnfriend(friend.friendId, displayName)}
                   disabled={unfriendingId === friend.friendId}
                   className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
                 >
@@ -141,7 +181,8 @@ export default function FriendList() {
               </div>
             </CardContent>
           </Card>
-        ))}
+        );
+        })}
       </div>
     </div>
   );
