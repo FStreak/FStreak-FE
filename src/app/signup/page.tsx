@@ -8,6 +8,7 @@ import { useTokenInfoStorage } from "@/store/authStore";
 import type { AxiosError } from "axios";
 import type { RegisterType } from "@/model/authModel/authDataType";
 import { showSuccess, showError, showLoading } from "@/lib/toast";
+import { isTeacher } from "@/utils/auth";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -44,14 +45,30 @@ export default function SignUpPage() {
       const data = await publicApiService.register(form);
 
       if (data.succeeded && data.accessToken) {
-        const { setToken, setRefreshToken } = useTokenInfoStorage.getState();
+        const { setToken, setRefreshToken, setUserId } =
+          useTokenInfoStorage.getState();
         setToken(data.accessToken);
         setRefreshToken(data.refreshToken);
-
+        setUserId(data.user.id);
         localStorage.setItem("user", JSON.stringify(data.user));
 
         showSuccess(`Chào mừng ${data.user.firstName}! 🎉`);
-        router.push("/");
+        
+        // 🔍 Debug token info (development only)
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔐 Signup successful - Token info:');
+          console.log('User roles from response:', data.user.roles);
+          console.log('Is teacher from token?', isTeacher(data.accessToken));
+        }
+        
+        // ✅ Redirect dựa theo role - Use setTimeout to ensure store is updated
+        const targetPath = isTeacher(data.accessToken) ? "/teacher" : "/dashboard";
+        console.log(`✅ Redirecting to ${targetPath}`);
+        
+        // Small delay to ensure Zustand store is fully updated
+        setTimeout(() => {
+          router.replace(targetPath);
+        }, 100);
       } else if (data.succeeded) {
         showSuccess(
           data.message ||

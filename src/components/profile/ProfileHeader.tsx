@@ -10,6 +10,7 @@ interface ProfileHeaderProps {
   loading: boolean;
   error: string | null;
   refetch: () => void;
+  isViewingOther?: boolean;
 }
 
 export default function ProfileHeader({
@@ -17,6 +18,7 @@ export default function ProfileHeader({
   loading,
   error,
   refetch,
+  isViewingOther = false,
 }: ProfileHeaderProps) {
   const fullName = data ? `${data.firstName} ${data.lastName}`.trim() : "";
 
@@ -59,9 +61,11 @@ export default function ProfileHeader({
           </div>
         </div>
 
-        <Button className="bg-gradient-to-r from-orange-500 to-yellow-400 text-white font-semibold shadow-md hover:shadow-lg transition-all">
-          Edit
-        </Button>
+        {!isViewingOther && (
+          <Button className="bg-gradient-to-r from-orange-500 to-yellow-400 text-white font-semibold shadow-md hover:shadow-lg transition-all">
+            Edit
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

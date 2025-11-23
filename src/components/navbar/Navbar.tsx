@@ -9,6 +9,11 @@ import {
   FileText,
   CreditCard,
   Bell,
+  PawPrint, // 🐾 Thêm icon cho mascot
+  GraduationCap, // 🎓 Thêm icon cho teacher
+  Trophy, // 🏆 Thêm icon cho leaderboard
+  UserPlus, // 👥 Thêm icon cho friends
+  MessageCircle, // 💬 Thêm icon cho messages
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -17,6 +22,8 @@ import { privateApiService } from "@/services/ApiPrivate";
 import { useEffect, useState, useRef } from "react";
 import type { ReminderEntry } from "@/model/reminder/reminderTypes";
 import UserDropdown from "./UserDropdown";
+import LeaderboardDropdown from "./LeaderboardDropdown";
+import { isTeacher } from "@/utils/auth";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -24,7 +31,6 @@ export default function Navbar() {
 
   const isActive = (path: string) => pathname === path;
 
-  // Notifications
   const [reminders, setReminders] = useState<ReminderEntry[]>([]);
   const [openNotif, setOpenNotif] = useState(false);
   const notifRef = useRef<HTMLDivElement | null>(null);
@@ -70,7 +76,11 @@ export default function Navbar() {
             { href: "/", icon: Home, label: "Home" },
             { href: "/lessons", icon: BookOpen, label: "Lessons" },
             { href: "/classrooms", icon: Users2, label: "Classrooms" },
+            { href: "/friends", icon: UserPlus, label: "Friends" }, // 👥 Thêm tab friends
+            { href: "/messages", icon: MessageCircle, label: "Messages" }, // 💬 Thêm tab messages
             { href: "/studyWall", icon: FileText, label: "StudyWall" },
+            { href: "/leaderboard", icon: Trophy, label: "Leaderboard" }, // 🏆 Thêm tab leaderboard
+            { href: "/mascot", icon: PawPrint, label: "Mascot" }, // 🐾 Thêm tab mới
             { href: "/plans", icon: CreditCard, label: "Plans" },
           ].map(({ href, icon: Icon, label }) => (
             <Link
@@ -84,9 +94,25 @@ export default function Navbar() {
               {label}
             </Link>
           ))}
+          
+          {/* 🎓 Teacher Dashboard Link - Only visible for teachers */}
+          {token && isTeacher(token) && (
+            <Link
+              href="/teacher"
+              className={`flex items-center gap-1.5 transition-colors ${
+                isActive("/teacher") ? "text-orange-500" : "hover:text-orange-500"
+              }`}
+            >
+              <GraduationCap className="w-4 h-4" />
+              Teacher
+            </Link>
+          )}
         </div>
 
         <ThemeToggle />
+
+        {/* 🏆 Leaderboard */}
+        {token && <LeaderboardDropdown />}
 
         {/* 🔔 Notifications */}
         {token && (
