@@ -30,7 +30,7 @@ export const showPromise = async <T>(
 };
 
 /** 🎯 Generic toast function that accepts message and type */
-export const showToast = (message: string, type: "success" | "error" | "info" | "loading" = "info") => {
+export function showToast(message: string, type: "success" | "error" | "info" | "loading" = "info") {
   switch (type) {
     case "success":
       return showSuccess(message);
@@ -42,7 +42,7 @@ export const showToast = (message: string, type: "success" | "error" | "info" | 
     default:
       return showInfo(message);
   }
-};
+}
 
 // Export a toast object with common methods for easier usage
 export const toast = {
@@ -52,3 +52,6 @@ export const toast = {
   loading: showLoading,
   promise: showPromise,
 };
+
+// Re-export showToast explicitly for better tree-shaking support
+export { showToast };
