@@ -52,6 +52,3 @@ export const toast = {
   loading: showLoading,
   promise: showPromise,
 };
-
-// Re-export showToast explicitly for better tree-shaking support
-export { showToast };
