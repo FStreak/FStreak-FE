@@ -12,6 +12,7 @@ export interface UserAchievementDto {
   };
   earnedAt: string;
   isActive?: boolean;
+  isClaimed?: boolean;
 }
 
 export interface AwardAchievementRequest {
