@@ -94,19 +94,31 @@ export default function TeacherPage() {
         // Update existing lesson
         const updatedLesson = await privateApiService.updateLesson(editingLesson.id, formData);
         setLessons(lessons.map((l) => (l.id === updatedLesson.id ? updatedLesson : l)));
-        toast.success("Lesson updated successfully");
+        toast.success("Cập nhật bài học thành công");
       } else {
         // Create new lesson
         const newLesson = await privateApiService.createLesson(formData);
         setLessons([newLesson, ...lessons]);
-        toast.success("Lesson created successfully");
+        toast.success("Tạo bài học thành công");
       }
 
       setIsFormOpen(false);
       setEditingLesson(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to save lesson:", error);
-      toast.error("Failed to save lesson");
+      
+      // Kiểm tra lỗi CORS
+      if (error.message?.includes("CORS") || error.code === "ERR_NETWORK" || !error.response) {
+        toast.error("Lỗi kết nối: Backend chưa cấu hình CORS. Vui lòng liên hệ admin.");
+        console.error("CORS Error Details:", {
+          message: error.message,
+          code: error.code,
+          config: error.config,
+        });
+      } else {
+        const errorMessage = error.response?.data?.message || error.response?.data?.title || "Không thể lưu bài học";
+        toast.error(errorMessage);
+      }
     } finally {
       setIsSubmitting(false);
     }

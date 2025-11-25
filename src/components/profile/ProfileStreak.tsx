@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { privateApiService } from "@/services/ApiPrivate";
+import { useTokenInfoStorage } from "@/store/authStore";
+import { isAdmin, isTeacher } from "@/utils/auth";
 
 interface StreakData {
   currentStreak: number;
@@ -12,8 +14,14 @@ interface StreakData {
 }
 
 export default function ProfileStreak() {
+  const { token } = useTokenInfoStorage();
   const [streak, setStreak] = useState<StreakData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Don't show streak for admin or teacher
+  if (token && (isAdmin(token) || isTeacher(token))) {
+    return null;
+  }
 
   useEffect(() => {
     const fetchStreak = async () => {

@@ -4,13 +4,7 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { BookOpen, ArrowRight } from "lucide-react";
 import ProgressBar from "./ProgressBar";
-
-interface Lesson {
-  id: string;
-  title: string;
-  desc: string;
-  progress: number;
-}
+import type { Lesson } from "@/model/lesson/lessonTypes";
 
 export default function FeaturedLessonCard({ lesson }: { lesson: Lesson }) {
   return (
@@ -31,11 +25,14 @@ export default function FeaturedLessonCard({ lesson }: { lesson: Lesson }) {
         </div>
 
         <div className="md:ml-auto w-full md:w-2/3">
-          <p className="text-sm text-[#555] dark:text-[#B7B7B7] mb-4">
-            {lesson.desc}
-          </p>
+          {lesson.description && (
+            <p className="text-sm text-[#555] dark:text-[#B7B7B7] mb-4">
+              {lesson.description}
+            </p>
+          )}
 
-          <ProgressBar value={lesson.progress} />
+          {/* Progress bar - tạm thời để 0 vì chưa có API progress */}
+          <ProgressBar value={0} />
           <div className="mt-5">
             <Link
               href={`/lessons/${lesson.id}`}

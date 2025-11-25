@@ -14,7 +14,45 @@ export const setupInterceptors = (privateClient: AxiosInstance, publicClient: Ax
   privateClient.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
       const { token } = useTokenInfoStorage.getState();
-      if (token) config.headers.Authorization = `Bearer ${token}`;
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+        
+        // Log admin API requests for debugging
+        if (config.url?.includes('/admin/')) {
+          console.log('🔍 Admin API Request:', {
+            url: config.url,
+            method: config.method,
+            hasAuthHeader: !!config.headers.Authorization,
+            authHeaderPrefix: config.headers.Authorization?.toString().substring(0, 30) + '...',
+            tokenLength: token.length,
+          });
+          
+          // Decode token to show role
+          try {
+            const base64Url = token.split('.')[1];
+            if (base64Url) {
+              const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+              const jsonPayload = decodeURIComponent(
+                atob(base64)
+                  .split('')
+                  .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                  .join('')
+              );
+              const decoded = JSON.parse(jsonPayload);
+              console.log('🔍 Token payload for admin request:', {
+                role: decoded['role'] || decoded['Role'],
+                email: decoded['email'],
+                nameid: decoded['nameid'],
+                allKeys: Object.keys(decoded),
+              });
+            }
+          } catch (e) {
+            console.warn('⚠️ Could not decode token for logging:', e);
+          }
+        }
+      } else {
+        console.warn('⚠️ No token found for private API request:', config.url);
+      }
       return config;
     },
     (error) => Promise.reject(error)
@@ -26,6 +64,48 @@ export const setupInterceptors = (privateClient: AxiosInstance, publicClient: Ax
     async (error: AxiosError) => {
       const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
       const isTokenExpiredError = error.response?.status === 401;
+      const isForbiddenError = error.response?.status === 403;
+
+      // Log 403 errors for admin APIs with detailed info
+      if (isForbiddenError && originalRequest.url?.includes('/admin/')) {
+        const { token } = useTokenInfoStorage.getState();
+        console.error('🔴 403 Forbidden for Admin API:', {
+          url: originalRequest.url,
+          method: originalRequest.method,
+          hasAuthHeader: !!originalRequest.headers?.Authorization,
+          authHeaderValue: originalRequest.headers?.Authorization?.toString().substring(0, 50) + '...',
+          responseStatus: error.response?.status,
+          responseStatusText: error.response?.statusText,
+          responseData: error.response?.data,
+          responseHeaders: error.response?.headers,
+        });
+        
+        // Decode token to show what role is being sent
+        if (token) {
+          try {
+            const base64Url = token.split('.')[1];
+            if (base64Url) {
+              const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+              const jsonPayload = decodeURIComponent(
+                atob(base64)
+                  .split('')
+                  .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                  .join('')
+              );
+              const decoded = JSON.parse(jsonPayload);
+              console.error('🔴 Token being sent to backend:', {
+                role: decoded['role'] || decoded['Role'] || 'NOT FOUND',
+                email: decoded['email'],
+                nameid: decoded['nameid'],
+                allClaims: Object.keys(decoded),
+                fullPayload: decoded,
+              });
+            }
+          } catch (e) {
+            console.error('❌ Could not decode token:', e);
+          }
+        }
+      }
 
       // ✅ Khi token hết hạn + chưa retry
       if (isTokenExpiredError && !originalRequest._retry) {

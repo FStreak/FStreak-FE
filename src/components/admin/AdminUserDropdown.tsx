@@ -4,11 +4,11 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTokenInfoStorage } from "@/store/authStore";
-import { User, Settings, LogOut } from "lucide-react";
+import { User, Settings, LogOut, Home } from "lucide-react";
 import ApiPrivate from "@/services/ApiPrivate";
 import { showSuccess, showError } from "@/lib/toast";
 
-export default function UserDropdown() {
+export default function AdminUserDropdown() {
   const { token, refreshToken, clear } = useTokenInfoStorage();
   const router = useRouter();
 
@@ -30,14 +30,14 @@ export default function UserDropdown() {
       console.warn("⚠️ Logout API failed (ignored)", err);
     } finally {
       console.log("🧹 Full logout: clear Zustand + localStorage");
-      useTokenInfoStorage.persist.clearStorage(); // ✅ clear toàn bộ persist
-      localStorage.removeItem("fstreak-auth-storage"); // ✅ đảm bảo không sót
+      useTokenInfoStorage.persist.clearStorage();
+      localStorage.removeItem("fstreak-auth-storage");
       localStorage.removeItem("user");
 
       setLoggingOut(false);
       setOpen(false);
       router.push("/");
-      window.location.reload(); // ✅ ép reload sạch store (quan trọng)
+      window.location.reload();
     }
   };
 
@@ -65,6 +65,14 @@ export default function UserDropdown() {
       {/* 📜 Dropdown Menu */}
       {open && (
         <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg animate-fadeIn z-50 overflow-hidden">
+          <Link
+            href="/"
+            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-800 dark:text-gray-200 hover:bg-orange-50 dark:hover:bg-gray-800 transition-all"
+          >
+            <Home className="w-4 h-4 text-orange-500" />
+            Về trang chủ
+          </Link>
+
           <Link
             href="/profile"
             className="flex items-center gap-2 px-4 py-2 text-sm text-gray-800 dark:text-gray-200 hover:bg-orange-50 dark:hover:bg-gray-800 transition-all"
@@ -98,3 +106,5 @@ export default function UserDropdown() {
     </div>
   );
 }
+
+

@@ -5,6 +5,7 @@ import useUserProfile from "@/hooks/useUserProfile";
 import ProfileHeader from "@/components/profile/ProfileHeader";
 import ProfileStreak from "@/components/profile/ProfileStreak";
 import ProfilePosts from "@/components/profile/ProfilePosts";
+import ProfileAchievements from "@/components/profile/ProfileAchievements";
 
 export default function ProfilePage() {
   const { data, loading, error, refetch } = useUserProfile();
@@ -22,6 +23,7 @@ export default function ProfilePage() {
             refetch={refetch}
           />
           <ProfileStreak />
+          <ProfileAchievements />
           <ProfilePosts />
         </div>
       </div>

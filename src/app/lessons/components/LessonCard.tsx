@@ -4,14 +4,15 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { BookOpen, ArrowRight } from "lucide-react";
 import ProgressBar from "./ProgressBar";
+import type { Lesson } from "@/model/lesson/lessonTypes";
 
-interface Lesson {
-  id: string;
-  title: string;
-  level: string;
-  desc: string;
-  progress: number;
-}
+// Helper function để xác định level dựa trên duration
+const getLevel = (durationMinutes?: number): string => {
+  if (!durationMinutes) return "Beginner";
+  if (durationMinutes <= 30) return "Beginner";
+  if (durationMinutes <= 60) return "Intermediate";
+  return "Advanced";
+};
 
 export default function LessonCard({ lesson }: { lesson: Lesson }) {
   return (
@@ -42,19 +43,21 @@ export default function LessonCard({ lesson }: { lesson: Lesson }) {
                            bg-orange-50/60 text-orange-600
                            dark:bg-[#181818] dark:text-[#E7B674]"
               >
-                {lesson.level}
+                {getLevel(lesson.durationMinutes)}
               </span>
             </div>
           </div>
         </div>
 
         {/* Description */}
-        <p className="text-[13px] text-[#5E5E5E] dark:text-[#B8B8B8]">
-          {lesson.desc}
-        </p>
+        {lesson.description && (
+          <p className="text-[13px] text-[#5E5E5E] dark:text-[#B8B8B8]">
+            {lesson.description}
+          </p>
+        )}
 
-        {/* Progress bar */}
-        <ProgressBar value={lesson.progress} small />
+        {/* Progress bar - tạm thời để 0 vì chưa có API progress */}
+        <ProgressBar value={0} small />
 
         {/* Action link */}
         <div className="pt-2">
@@ -65,7 +68,7 @@ export default function LessonCard({ lesson }: { lesson: Lesson }) {
                        hover:text-orange-500 dark:hover:text-[#F3C98B]
                        transition-colors"
           >
-            {lesson.progress > 0 ? "Continue" : "Start Lesson"}
+            Start Lesson
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>

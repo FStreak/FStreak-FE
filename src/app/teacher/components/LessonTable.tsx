@@ -39,7 +39,7 @@ export function LessonTable({ lessons, onEdit, onDelete, isLoading }: LessonTabl
           <CardContent className="p-6">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 space-y-2">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-lg font-semibold bg-gradient-to-r from-orange-500 to-yellow-400 bg-clip-text text-transparent">
                     {lesson.title}
                   </h3>
@@ -50,6 +50,32 @@ export function LessonTable({ lessons, onEdit, onDelete, isLoading }: LessonTabl
                   ) : (
                     <span className="px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400 rounded-full">
                       Draft
+                    </span>
+                  )}
+                  {lesson.category && (
+                    <span className="px-2 py-1 text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded-full">
+                      {lesson.category}
+                    </span>
+                  )}
+                  {lesson.studentCount !== undefined && lesson.studentCount > 0 && (
+                    <span className="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full flex items-center gap-1">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                      </svg>
+                      {lesson.studentCount} đang học
                     </span>
                   )}
                 </div>

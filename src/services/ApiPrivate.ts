@@ -29,6 +29,7 @@ import type {
   MessagesResponse, 
   MarkAsReadDto 
 } from "@/model/messages/messageTypes";
+import type { UserAchievementDto } from "@/model/achievement/userAchievementTypes";
 
 export const privateApiService = {
   // ============ USER APIs ============
@@ -81,6 +82,185 @@ export const privateApiService = {
       throw error;
     }
   },
+  // ============ ACHIEVEMENTS APIs ============
+  /** Get user achievements */
+  getUserAchievements: async (userId?: string): Promise<UserAchievementDto[]> => {
+    try {
+      // Always use /me endpoint for current user, even if userId is provided
+      // The /me endpoint should return achievements for the authenticated user
+      const url = `/Achievements/me`;
+      console.log("🔍 Fetching achievements from:", url);
+      const response = await apiService.privateApiClient.get<UserAchievementDto[]>(url);
+      const data = wrapResponse(response);
+      console.log("✅ Achievements API response:", data);
+      return Array.isArray(data) ? data : [];
+    } catch (error: any) {
+      console.error("❌ Error fetching achievements:", error);
+      console.error("❌ Error details:", {
+        status: error?.response?.status,
+        statusText: error?.response?.statusText,
+        data: error?.response?.data,
+        url: error?.config?.url
+      });
+      
+      // If endpoint doesn't exist, return empty array
+      if (error?.response?.status === 404 || error?.response?.status === 405) {
+        console.warn("⚠️ Achievements endpoint not available (404/405), returning empty array");
+        return [];
+      }
+      
+      // For other errors, still return empty array to prevent UI crash
+      console.warn("⚠️ Error fetching achievements, returning empty array");
+      return [];
+    }
+  },
+
+  /** Get all available achievements (public) */
+  getAllAchievements: async (): Promise<any[]> => {
+    try {
+      const response = await apiService.privateApiClient.get<any[]>(`/Achievements`);
+      return wrapResponse(response);
+    } catch (error: any) {
+      if (error?.response?.status === 404 || error?.response?.status === 405) {
+        console.warn("⚠️ Get all achievements endpoint not available");
+        return [];
+      }
+      throw error;
+    }
+  },
+
+  /** Get achievement by ID */
+  getAchievementById: async (id: string): Promise<any> => {
+    const response = await apiService.privateApiClient.get<any>(`/Achievements/${id}`);
+    return wrapResponse(response);
+  },
+
+  /** Get user achievement by userId and achievementId */
+  getUserAchievementById: async (userId: string, achievementId: string): Promise<UserAchievementDto> => {
+    const response = await apiService.privateApiClient.get<UserAchievementDto>(
+      `/Achievements/users/${userId}/achievements/${achievementId}`
+    );
+    return wrapResponse(response);
+  },
+
+  /** Claim achievement for user */
+  claimAchievement: async (userId: string, achievementId: string): Promise<UserAchievementDto> => {
+    // According to OpenAPI spec, the endpoint is:
+    // POST /api/Achievements/users/{userId}/achievements/{achievementId}/claim
+    
+    // First, check if user achievement already exists
+    let userAchievementExists = false;
+    try {
+      console.log(`🔍 Checking if user achievement exists: GET /Achievements/users/${userId}/achievements/${achievementId}`);
+      const existing = await apiService.privateApiClient.get<UserAchievementDto>(
+        `/Achievements/users/${userId}/achievements/${achievementId}`
+      );
+      const existingData = wrapResponse(existing);
+      console.log(`✅ User achievement already exists:`, existingData);
+      userAchievementExists = true;
+      
+      // If it exists and is already claimed, return it
+      if (existingData.isClaimed) {
+        console.log(`✅ Achievement already claimed`);
+        return existingData;
+      }
+      
+      // If it exists but not claimed, try to claim it
+      console.log(`🔍 User achievement exists but not claimed, attempting to claim...`);
+    } catch (checkError: any) {
+      // If 404, user achievement doesn't exist - need to create it first
+      if (checkError?.response?.status === 404) {
+        console.log(`⚠️ User achievement doesn't exist yet (404). Attempting to create it first...`);
+        userAchievementExists = false;
+        
+        // Try to create user achievement first
+        // Note: OpenAPI spec doesn't show a POST endpoint to create user achievement,
+        // but we'll try common patterns
+        const createEndpoints = [
+          `/Achievements/users/${userId}/achievements/${achievementId}`,  // POST to create
+          `/Achievements/me/${achievementId}`,                             // POST for current user
+        ];
+        
+        for (const createEndpoint of createEndpoints) {
+          try {
+            console.log(`🔍 Trying to create user achievement: POST ${createEndpoint}`);
+            const createResponse = await apiService.privateApiClient.post<UserAchievementDto>(
+              createEndpoint,
+              {} // Empty body, backend might auto-populate
+            );
+            const created = wrapResponse(createResponse);
+            console.log(`✅ Successfully created user achievement:`, created);
+            userAchievementExists = true;
+            
+            // If created but not claimed, continue to claim it
+            if (!created.isClaimed) {
+              break; // Break and continue to claim
+            } else {
+              return created; // Already claimed, return it
+            }
+          } catch (createError: any) {
+            console.log(`⚠️ Create endpoint ${createEndpoint} failed:`, createError?.response?.status);
+            // Continue to next endpoint or proceed to claim
+            continue;
+          }
+        }
+      } else {
+        console.warn(`⚠️ Error checking user achievement:`, checkError?.response?.status, checkError?.response?.data);
+      }
+    }
+    
+    // If user achievement doesn't exist and we couldn't create it,
+    // the backend might automatically create it when claiming
+    if (!userAchievementExists) {
+      console.log(`⚠️ User achievement doesn't exist. Backend might auto-create it when claiming.`);
+    }
+    
+    // Try the official claim endpoint from OpenAPI spec
+    try {
+      const endpoint = `/Achievements/users/${userId}/achievements/${achievementId}/claim`;
+      console.log(`🔍 Claiming achievement via official endpoint: POST ${endpoint}`);
+      const response = await apiService.privateApiClient.post<UserAchievementDto>(endpoint);
+      const result = wrapResponse(response);
+      console.log(`✅ Successfully claimed achievement:`, result);
+      return result;
+    } catch (error: any) {
+      console.error(`❌ Error claiming achievement:`, error);
+      console.error(`❌ Error details:`, {
+        status: error?.response?.status,
+        statusText: error?.response?.statusText,
+        data: error?.response?.data,
+        message: error?.message
+      });
+      
+      // If 400 with "User achievement not found", it means backend requires user achievement to exist first
+      if (error?.response?.status === 400) {
+        const errorData = error?.response?.data;
+        const errorMessage = typeof errorData === 'string' ? errorData : errorData?.message || 'Bad Request';
+        
+        if (errorMessage.includes('not found') || errorMessage.includes('User achievement not found')) {
+          // Backend requires user achievement to exist first
+          // This might mean achievements are automatically awarded by backend based on user actions
+          // and cannot be manually claimed
+          console.warn(
+            `⚠️ Backend requires user achievement to exist before claiming. ` +
+            `This suggests achievements are automatically awarded by the backend based on user actions. ` +
+            `You may not need to manually claim achievements.`
+          );
+          
+          // Don't throw error, just log warning
+          // The achievement might be automatically awarded by backend
+          throw new Error(
+            `Cannot manually claim achievement: Backend requires user achievement to exist first. ` +
+            `Achievements may be automatically awarded by the backend based on user actions ` +
+            `(e.g., signup, streak check-in). Please check if the achievement should be automatically awarded.`
+          );
+        }
+      }
+      
+      throw error;
+    }
+  },
+
   // ============ REMINDERS APIs ============
   /** Get all reminders for current user */
   getReminders: async (): Promise<ReminderEntry[]> => {
@@ -123,20 +303,32 @@ export const privateApiService = {
   },
   // ============ STREAK APIs ============
   /** Get my streak detail */
-  getMyStreak: async (): Promise<StreakDetail> => {  
-  const response = await apiService.privateApiClient.get<StreakDetail>("/streaks/me");
-  return wrapResponse(response);
+  getMyStreak: async (): Promise<StreakDetail> => {
+    try {
+      const response = await apiService.privateApiClient.get<StreakDetail>("/Streaks/me");
+      return wrapResponse(response);
+    } catch (error: any) {
+      console.error("❌ Error fetching streak:", error);
+      throw error;
+    }
   },
 
 
   /** Check in (đánh dấu học hôm nay) */
-  checkInStreak: async (body: { date: string; source: number }): Promise<StreakDetail> => {
-  const response = await apiService.privateApiClient.post<StreakDetail>(
-    "/Streaks/check-in",
-    body
-  );
-  return wrapResponse(response);
-},
+  checkInStreak: async (body: CheckInRequest): Promise<StreakDetail> => {
+    try {
+      const response = await apiService.privateApiClient.post<StreakDetail>(
+        "/Streaks/check-in",
+        body
+      );
+      return wrapResponse(response);
+    } catch (error: any) {
+      console.error("❌ Error checking in streak:", error);
+      console.error("❌ Error response:", error?.response);
+      console.error("❌ Error response data:", error?.response?.data);
+      throw error;
+    }
+  },
 
 
   /** Get streak leaderboard with filters
@@ -253,6 +445,12 @@ export const privateApiService = {
   },
 
   // ============ LESSONS APIs ============
+  /** Get all published lessons (for students/users) */
+  getAllLessons: async (): Promise<Lesson[]> => {
+    const response = await apiService.privateApiClient.get<Lesson[]>("/Lessons");
+    return wrapResponse(response);
+  },
+
   /** Get all lessons for a specific teacher */
   getLessonsByTeacher: async (teacherId: string): Promise<Lesson[]> => {
     const response = await apiService.privateApiClient.get<Lesson[]>(`/Lessons/teacher/${teacherId}`);
@@ -267,36 +465,66 @@ export const privateApiService = {
 
   /** Create a new lesson */
   createLesson: async (formData: LessonFormData): Promise<Lesson> => {
-    const form = new FormData();
-    form.append("Title", formData.title);
-    if (formData.description) form.append("Description", formData.description);
-    if (formData.startAt) form.append("StartAt", formData.startAt);
-    if (formData.durationMinutes) form.append("DurationMinutes", formData.durationMinutes.toString());
-    form.append("IsPublished", formData.isPublished.toString());
-    if (formData.documentFile) form.append("DocumentFile", formData.documentFile);
-    if (formData.videoFile) form.append("VideoFile", formData.videoFile);
+    try {
+      const form = new FormData();
+      form.append("Title", formData.title);
+      if (formData.description) form.append("Description", formData.description);
+      if (formData.category) form.append("Category", formData.category);
+      if (formData.startAt) form.append("StartAt", formData.startAt);
+      if (formData.durationMinutes) form.append("DurationMinutes", formData.durationMinutes.toString());
+      form.append("IsPublished", formData.isPublished.toString());
+      if (formData.documentFile) form.append("DocumentFile", formData.documentFile);
+      if (formData.videoFile) form.append("VideoFile", formData.videoFile);
 
-    const response = await apiService.privateApiClient.post<Lesson>("/Lessons", form, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return wrapResponse(response);
+      const response = await apiService.privateApiClient.post<Lesson>("/Lessons", form, {
+        headers: { 
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      return wrapResponse(response);
+    } catch (error: any) {
+      // Log chi tiết lỗi để debug
+      console.error("Create lesson error:", {
+        message: error.message,
+        code: error.code,
+        response: error.response?.data,
+        status: error.response?.status,
+        url: error.config?.url,
+      });
+      throw error;
+    }
   },
 
   /** Update an existing lesson */
   updateLesson: async (lessonId: string, formData: LessonFormData): Promise<Lesson> => {
-    const form = new FormData();
-    form.append("Title", formData.title);
-    if (formData.description) form.append("Description", formData.description);
-    if (formData.startAt) form.append("StartAt", formData.startAt);
-    if (formData.durationMinutes) form.append("DurationMinutes", formData.durationMinutes.toString());
-    form.append("IsPublished", formData.isPublished.toString());
-    if (formData.documentFile) form.append("DocumentFile", formData.documentFile);
-    if (formData.videoFile) form.append("VideoFile", formData.videoFile);
+    try {
+      const form = new FormData();
+      form.append("Title", formData.title);
+      if (formData.description) form.append("Description", formData.description);
+      if (formData.category) form.append("Category", formData.category);
+      if (formData.startAt) form.append("StartAt", formData.startAt);
+      if (formData.durationMinutes) form.append("DurationMinutes", formData.durationMinutes.toString());
+      form.append("IsPublished", formData.isPublished.toString());
+      if (formData.documentFile) form.append("DocumentFile", formData.documentFile);
+      if (formData.videoFile) form.append("VideoFile", formData.videoFile);
 
-    const response = await apiService.privateApiClient.put<Lesson>(`/Lessons/${lessonId}`, form, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return wrapResponse(response);
+      const response = await apiService.privateApiClient.put<Lesson>(`/Lessons/${lessonId}`, form, {
+        headers: { 
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      return wrapResponse(response);
+    } catch (error: any) {
+      // Log chi tiết lỗi để debug
+      console.error("Update lesson error:", {
+        message: error.message,
+        code: error.code,
+        response: error.response?.data,
+        status: error.response?.status,
+        url: error.config?.url,
+      });
+      throw error;
+    }
   },
 
   /** Delete a lesson */

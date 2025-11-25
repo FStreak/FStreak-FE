@@ -3,6 +3,8 @@
 import { useEffect, useState, useRef } from "react";
 import ApiPrivate from "@/services/ApiPrivate";
 import { useTokenInfoStorage } from "@/store/authStore";
+import { achievementService } from "@/services/achievementService";
+import { isAdmin, isTeacher } from "@/utils/auth";
 import type { StreakDetail } from "@/model/streak/streakTypes";
 
 export default function CheckStreakTimer() {
@@ -11,10 +13,13 @@ export default function CheckStreakTimer() {
   const [loading, setLoading] = useState(false);
   const [streak, setStreak] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    // Don't show streak for admin or teacher
+    if (token && (isAdmin(token) || isTeacher(token))) {
+      return;
+    }
     console.log("🟢 Mounted — userId:", userId, "| token:", !!token);
 
     if (!token) return console.log("🚫 No token — skip streak timer");
@@ -98,6 +103,11 @@ export default function CheckStreakTimer() {
     };
   }, [token, userId]);
 
+  // Don't show streak for admin or teacher
+  if (token && (isAdmin(token) || isTeacher(token))) {
+    return null;
+  }
+
   // ✅ Handle Check-in
   const handleUpdateStreak = async () => {
     console.log("🚀 User confirmed check-in");
@@ -109,7 +119,11 @@ export default function CheckStreakTimer() {
       const realTime = new Date().toISOString();
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-      const body = { date: realTime, source: 0, timezone };
+      const body = { 
+        date: realTime, 
+        source: 0,
+        ...(timezone ? { timezone } : {})
+      };
       console.log("📤 Sending payload:", body);
 
       const updated: StreakDetail = await ApiPrivate.checkInStreak(body);
@@ -120,14 +134,32 @@ export default function CheckStreakTimer() {
         `🔥 Streak updated! Current streak: ${updated.currentStreak} day(s)`
       );
       setShowPopup(false);
-    } catch (err) {
+      
+      // Check for First Streak achievement when user gets their first streak
+      if (userId && updated.currentStreak === 1) {
+        // Award achievement asynchronously (don't block UI)
+        achievementService.checkFirstStreakAchievement(userId, updated.currentStreak)
+          .catch(error => {
+            console.error("❌ Failed to award First Streak achievement:", error);
+            // Don't show error to user - this is a background process
+          });
+      }
+    } catch (err: any) {
       console.error("❌ Check-in failed:", err);
-      setMessage("⚠️ Session expired or check-in failed.");
+      console.error("❌ Error response:", err?.response);
+      console.error("❌ Error response data:", err?.response?.data);
+      
+      const errorMessage = err?.response?.data?.message || 
+                          err?.response?.data?.title ||
+                          err?.message ||
+                          "⚠️ Không thể cập nhật streak. Vui lòng thử lại.";
+      setMessage(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
+  // Early return checks (after all hooks)
   if (!token || !userId || !showPopup) return null;
 
   return (
