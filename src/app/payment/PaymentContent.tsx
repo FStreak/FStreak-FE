@@ -5,10 +5,14 @@ import Navbar from "@/components/navbar/Navbar";
 import PlanSummary from "./components/PlanSummary";
 import PaymentMethods from "./components/PaymentMethods";
 import PaymentInstructions from "./components/PaymentInstructions";
-import { Plan } from "@/components/plans/PlanCard"; // ✅ import đúng Plan chuẩn
+import { Plan } from "@/components/plans/PlanCard";
+import paymentService from "@/services/paymentService";
+import { useRouter } from "next/navigation";
 
 export default function PaymentContent() {
   const [plan, setPlan] = useState<Plan | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const router = useRouter();
 
   // ✅ Lấy dữ liệu gói từ localStorage
   useEffect(() => {
@@ -22,11 +26,51 @@ export default function PaymentContent() {
     }
   }, []);
 
-  // ✅ Khi chọn phương thức thanh toán
-  const handlePaymentMethod = (method: string) => {
-    if (!plan) return;
-    localStorage.setItem("selectedPayment", JSON.stringify({ method, plan }));
-    window.location.href = `/payment/qr-code?method=${method}`;
+  // ✅ Parse giá tiền từ string (ví dụ: "30.000₫" -> 30000)
+  const parsePrice = (priceStr: string): number => {
+    // Loại bỏ ký tự không phải số
+    const numStr = priceStr.replace(/[^\d]/g, "");
+    return parseInt(numStr) || 0;
+  };
+
+  // ✅ Khi chọn phương thức thanh toán - Gọi API PayOS
+  const handlePaymentMethod = async (method: string) => {
+    if (!plan || isProcessing) return;
+
+    setIsProcessing(true);
+
+    try {
+      const amount = parsePrice(plan.price);
+
+      // Tạo payment link qua API
+      const paymentData = {
+        planId: plan.id,
+        amount: amount,
+        description: `Thanh toán gói ${plan.title} - FStreak`,
+        returnUrl: `${window.location.origin}/payment/success`,
+        cancelUrl: `${window.location.origin}/payment/cancel`,
+      };
+
+      console.log("📤 Đang tạo thanh toán:", paymentData);
+
+      const response = await paymentService.createPayment(paymentData);
+
+      console.log("✅ Nhận được payment URL:", response);
+
+      // Lưu orderCode để check status sau
+      localStorage.setItem("orderCode", response.orderCode);
+      localStorage.setItem("selectedPayment", JSON.stringify({ method, plan }));
+
+      // Redirect đến PayOS payment URL
+      window.location.href = response.paymentUrl;
+    } catch (error: any) {
+      console.error("❌ Lỗi tạo thanh toán:", error);
+      alert(
+        error?.response?.data?.message ||
+          "Không thể tạo thanh toán. Vui lòng thử lại!"
+      );
+      setIsProcessing(false);
+    }
   };
 
   if (!plan) {
@@ -50,8 +94,8 @@ export default function PaymentContent() {
     <div className="min-h-screen bg-gradient-to-b from-[#FFF9F3] via-white to-[#FFF4EA] dark:from-gray-950 dark:to-gray-900">
       <Navbar />
       <div className="max-w-4xl mx-auto px-6 py-10 space-y-8 animate-fadeIn">
-        <PlanSummary plan={plan} /> {/* ✅ cùng kiểu dữ liệu chuẩn */}
-        <PaymentMethods onSelect={handlePaymentMethod} />
+        <PlanSummary plan={plan} />
+        <PaymentMethods onSelect={handlePaymentMethod} isProcessing={isProcessing} />
         <PaymentInstructions />
       </div>
     </div>

@@ -7,12 +7,14 @@ import { CreditCard, Smartphone } from "lucide-react";
 
 interface PaymentMethodsProps {
   onSelect: (method: string) => void;
+  isProcessing?: boolean;
 }
 
-export default function PaymentMethods({ onSelect }: PaymentMethodsProps) {
+export default function PaymentMethods({ onSelect, isProcessing = false }: PaymentMethodsProps) {
   const [selected, setSelected] = useState<string | null>(null);
 
   const handleSelect = (method: string) => {
+    if (isProcessing) return; // Không cho phép click khi đang xử lý
     setSelected(method);
     onSelect(method);
   };
@@ -27,6 +29,17 @@ export default function PaymentMethods({ onSelect }: PaymentMethodsProps) {
       <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-8 text-center bg-gradient-to-r from-orange-500 to-yellow-400 bg-clip-text text-transparent">
         Chọn phương thức thanh toán
       </h2>
+
+      {isProcessing && (
+        <div className="mb-6 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg text-center">
+          <div className="flex items-center justify-center space-x-2">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-orange-500"></div>
+            <span className="text-orange-600 dark:text-orange-400 font-semibold">
+              Đang xử lý thanh toán...
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         {/* VNPAY */}
