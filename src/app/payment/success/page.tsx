@@ -1,46 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import Navbar from "@/components/navbar/Navbar";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import paymentService from "@/services/paymentService";
-import { CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Navbar } from "@/components/navbar/Navbar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-export default function PaymentSuccessPage() {
-  const router = useRouter();
+// ✅ Tách component sử dụng useSearchParams ra riêng
+function PaymentSuccessContent() {
   const searchParams = useSearchParams();
-  const [status, setStatus] = useState<"checking" | "success" | "failed">("checking");
-  const [paymentInfo, setPaymentInfo] = useState<any>(null);
+  const router = useRouter();
+  const [status, setStatus] = useState<"loading" | "success" | "failed">("loading");
+  const [paymentData, setPaymentData] = useState<any>(null);
 
   useEffect(() => {
+    const orderCode = searchParams.get("orderCode");
+    
+    if (!orderCode) {
+      setStatus("failed");
+      return;
+    }
+
     const checkPaymentStatus = async () => {
       try {
-        // Lấy orderCode từ localStorage hoặc URL params
-        const orderCode = localStorage.getItem("orderCode") || searchParams.get("orderCode");
-        
-        if (!orderCode) {
-          setStatus("failed");
-          return;
-        }
-
         console.log("🔍 Đang kiểm tra trạng thái thanh toán:", orderCode);
-
-        // Gọi API check status
         const result = await paymentService.getPaymentStatus(orderCode);
-        
         console.log("✅ Kết quả thanh toán:", result);
         
-        setPaymentInfo(result);
-        
-        if (result.status === "Completed" || result.status === "PAID") {
-          setStatus("success");
-          // Xóa localStorage
-          localStorage.removeItem("orderCode");
-          localStorage.removeItem("selectedPlan");
-          localStorage.removeItem("selectedPayment");
-        } else {
-          setStatus("failed");
-        }
+        setPaymentData(result);
+        setStatus(result.status?.toLowerCase() === "paid" ? "success" : "failed");
       } catch (error) {
         console.error("❌ Lỗi kiểm tra thanh toán:", error);
         setStatus("failed");
@@ -50,101 +40,131 @@ export default function PaymentSuccessPage() {
     checkPaymentStatus();
   }, [searchParams]);
 
-  if (status === "checking") {
+  if (status === "loading") {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#FFF9F3] via-white to-[#FFF4EA] dark:from-gray-950 dark:to-gray-900">
-        <Navbar />
-        <div className="flex flex-col items-center justify-center min-h-[80vh] space-y-6">
-          <Loader2 className="w-16 h-16 text-orange-500 animate-spin" />
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
-            Đang xác nhận thanh toán...
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400">
-            Vui lòng đợi trong giây lát
-          </p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center gap-4">
+              <Loader2 className="h-16 w-16 animate-spin text-primary" />
+              <p className="text-lg font-medium">Đang xác nhận thanh toán...</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
-  if (status === "failed") {
+  if (status === "success") {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#FFF9F3] via-white to-[#FFF4EA] dark:from-gray-950 dark:to-gray-900">
-        <Navbar />
-        <div className="flex flex-col items-center justify-center min-h-[80vh] space-y-6">
-          <XCircle className="w-24 h-24 text-red-500" />
-          <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-200">
-            Thanh toán thất bại
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400 text-center max-w-md">
-            Đã có lỗi xảy ra trong quá trình thanh toán. Vui lòng thử lại.
-          </p>
-          <div className="flex gap-4 mt-8">
-            <button
-              onClick={() => router.push("/plans")}
-              className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-semibold transition-all"
-            >
-              Chọn gói khác
-            </button>
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="px-6 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg font-semibold transition-all"
-            >
-              Về trang chủ
-            </button>
-          </div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <div className="flex justify-center mb-4">
+              <CheckCircle2 className="h-20 w-20 text-green-500" />
+            </div>
+            <CardTitle className="text-center text-2xl">
+              Thanh toán thành công! 🎉
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg space-y-2">
+              <p className="text-sm text-muted-foreground">Mã đơn hàng:</p>
+              <p className="font-mono font-semibold">{paymentData?.orderCode}</p>
+              
+              {paymentData?.amount && (
+                <>
+                  <p className="text-sm text-muted-foreground mt-3">Số tiền:</p>
+                  <p className="text-xl font-bold text-green-600">
+                    {paymentData.amount.toLocaleString()} VNĐ
+                  </p>
+                </>
+              )}
+            </div>
+
+            <p className="text-center text-muted-foreground">
+              Tài khoản của bạn đã được nâng cấp lên Premium!
+            </p>
+
+            <div className="flex gap-3">
+              <Button 
+                onClick={() => router.push("/dashboard")}
+                className="flex-1"
+              >
+                Về Dashboard
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => router.push("/profile")}
+                className="flex-1"
+              >
+                Xem Profile
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#FFF9F3] via-white to-[#FFF4EA] dark:from-gray-950 dark:to-gray-900">
-      <Navbar />
-      <div className="flex flex-col items-center justify-center min-h-[80vh] space-y-6 px-6">
-        <div className="animate-bounce">
-          <CheckCircle className="w-24 h-24 text-green-500" />
-        </div>
-        <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-200 text-center">
-          🎉 Thanh toán thành công!
-        </h2>
-        <p className="text-gray-600 dark:text-gray-400 text-center max-w-md">
-          Cảm ơn bạn đã nâng cấp tài khoản FStreak. Bạn đã có thể sử dụng đầy đủ
-          các tính năng premium!
-        </p>
-
-        {paymentInfo && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg max-w-md w-full space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Mã đơn hàng:</span>
-              <span className="font-semibold text-gray-800 dark:text-gray-200">
-                {paymentInfo.orderCode}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Số tiền:</span>
-              <span className="font-semibold text-orange-500">
-                {paymentInfo.amount?.toLocaleString("vi-VN")}₫
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Mô tả:</span>
-              <span className="font-semibold text-gray-800 dark:text-gray-200 text-right">
-                {paymentInfo.description}
-              </span>
-            </div>
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <div className="flex justify-center mb-4">
+            <XCircle className="h-20 w-20 text-red-500" />
           </div>
-        )}
+          <CardTitle className="text-center text-2xl">
+            Thanh toán thất bại
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-center text-muted-foreground">
+            Đã có lỗi xảy ra trong quá trình thanh toán. Vui lòng thử lại.
+          </p>
 
-        <div className="flex gap-4 mt-8">
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="px-8 py-3 bg-gradient-to-r from-orange-500 to-yellow-400 hover:shadow-lg text-white rounded-lg font-semibold transition-all"
-          >
-            Về trang chủ
-          </button>
-        </div>
-      </div>
+          <div className="flex gap-3">
+            <Button 
+              onClick={() => router.push("/plans")}
+              className="flex-1"
+            >
+              Thử lại
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => router.push("/dashboard")}
+              className="flex-1"
+            >
+              Về Dashboard
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
+  );
+}
+
+// ✅ Wrap component chính trong Suspense
+export default function PaymentSuccessPage() {
+  return (
+    <>
+      <Navbar />
+      <Suspense
+        fallback={
+          <div className="min-h-screen flex items-center justify-center">
+            <Card className="w-full max-w-md">
+              <CardContent className="pt-6">
+                <div className="flex flex-col items-center gap-4">
+                  <Loader2 className="h-16 w-16 animate-spin text-primary" />
+                  <p className="text-lg font-medium">Đang tải...</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        }
+      >
+        <PaymentSuccessContent />
+      </Suspense>
+    </>
   );
 }
