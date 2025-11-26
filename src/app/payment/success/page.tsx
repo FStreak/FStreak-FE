@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import paymentService from "@/services/paymentService";
-import { Navbar } from "@/components/navbar/Navbar";
+import Navbar from "@/components/navbar/Navbar"; // ✅ Thay đổi từ named import sang default import
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
