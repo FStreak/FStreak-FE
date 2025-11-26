@@ -20,5 +20,6 @@ export interface StreakLeaderboardResponse {
 export interface CheckInRequest {
   date: string;  // ISO string
   source: number; // 0 = default (manual), có thể mở rộng sau này
+  timezone?: string; // Optional timezone
 }
 

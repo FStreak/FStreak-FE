@@ -6,15 +6,22 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import GuestNavbar from "@/components/GuestNavbar";
 import LandingPage from "@/components/LandingPage";
+import { isAdmin, isTeacher } from "@/utils/auth";
 
 export default function Page() {
   const { token } = useTokenInfoStorage();
   const router = useRouter();
 
   useEffect(() => {
-    // Nếu đã đăng nhập, redirect đến dashboard
+    // Nếu đã đăng nhập, redirect dựa theo role
     if (token) {
-      router.push("/dashboard");
+      let targetPath = "/dashboard";
+      if (isAdmin(token)) {
+        targetPath = "/admin";
+      } else if (isTeacher(token)) {
+        targetPath = "/teacher";
+      }
+      router.push(targetPath);
     }
   }, [token, router]);
 

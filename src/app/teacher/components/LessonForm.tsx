@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import type { Lesson, LessonFormData } from "@/model/lesson/lessonTypes";
+import { LESSON_CATEGORIES } from "@/model/lesson/lessonTypes";
 
 interface LessonFormProps {
   open: boolean;
@@ -34,6 +35,7 @@ export function LessonForm({
   const [formData, setFormData] = useState<LessonFormData>({
     title: "",
     description: "",
+    category: undefined,
     startAt: "",
     durationMinutes: 60,
     isPublished: false,
@@ -49,6 +51,7 @@ export function LessonForm({
       setFormData({
         title: lesson.title || "",
         description: lesson.description || "",
+        category: lesson.category,
         startAt: lesson.startAt ? new Date(lesson.startAt).toISOString().slice(0, 16) : "",
         durationMinutes: lesson.durationMinutes || 60,
         isPublished: lesson.isPublished || false,
@@ -59,6 +62,7 @@ export function LessonForm({
       setFormData({
         title: "",
         description: "",
+        category: undefined,
         startAt: "",
         durationMinutes: 60,
         isPublished: false,
@@ -138,6 +142,24 @@ export function LessonForm({
               className={errors.description ? "border-red-500" : ""}
             />
             {errors.description && <p className="text-xs text-red-500">{errors.description}</p>}
+          </div>
+
+          {/* Category */}
+          <div className="space-y-2">
+            <Label htmlFor="category">Category</Label>
+            <select
+              id="category"
+              value={formData.category || ""}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value as LessonFormData["category"] || undefined })}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+            >
+              <option value="">Chọn category</option>
+              {LESSON_CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Start Date/Time */}

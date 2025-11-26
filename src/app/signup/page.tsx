@@ -8,7 +8,8 @@ import { useTokenInfoStorage } from "@/store/authStore";
 import type { AxiosError } from "axios";
 import type { RegisterType } from "@/model/authModel/authDataType";
 import { showSuccess, showError, showLoading } from "@/lib/toast";
-import { isTeacher } from "@/utils/auth";
+import { isAdmin, isTeacher } from "@/utils/auth";
+import { achievementService } from "@/services/achievementService";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -54,15 +55,35 @@ export default function SignUpPage() {
 
         showSuccess(`Chào mừng ${data.user.firstName}! 🎉`);
         
+        // Check and award First-Step achievement after successful registration
+        if (data.user.id) {
+          // Use async/await to ensure achievement is awarded properly
+          // Delay slightly to ensure backend has fully processed the registration
+          setTimeout(async () => {
+            try {
+              await achievementService.checkFirstStepAchievement(data.user.id);
+            } catch (error) {
+              console.error("❌ Failed to award First-Step achievement:", error);
+              // Don't show error to user - this is a background process
+            }
+          }, 1500); // 1.5s delay to ensure user is fully registered
+        }
+        
         // 🔍 Debug token info (development only)
         if (process.env.NODE_ENV === 'development') {
           console.log('🔐 Signup successful - Token info:');
           console.log('User roles from response:', data.user.roles);
+          console.log('Is admin from token?', isAdmin(data.accessToken));
           console.log('Is teacher from token?', isTeacher(data.accessToken));
         }
         
-        // ✅ Redirect dựa theo role - Use setTimeout to ensure store is updated
-        const targetPath = isTeacher(data.accessToken) ? "/teacher" : "/dashboard";
+        // ✅ Redirect dựa theo role - Admin > Teacher > Dashboard
+        let targetPath = "/dashboard";
+        if (isAdmin(data.accessToken)) {
+          targetPath = "/admin";
+        } else if (isTeacher(data.accessToken)) {
+          targetPath = "/teacher";
+        }
         console.log(`✅ Redirecting to ${targetPath}`);
         
         // Small delay to ensure Zustand store is fully updated

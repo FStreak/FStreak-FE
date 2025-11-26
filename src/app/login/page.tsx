@@ -7,12 +7,8 @@ import { publicApiService } from "@/services/ApiPublic";
 import { useTokenInfoStorage } from "@/store/authStore";
 import type { AxiosError } from "axios";
 import { showSuccess, showError, showLoading } from "@/lib/toast";
-import { isTeacher } from "@/utils/auth";
-
-// Debug utility (only for development)
-if (process.env.NODE_ENV === 'development') {
-  import('@/utils/debugAuth');
-}
+import { isAdmin, isTeacher } from "@/utils/auth";
+import type { LoginResponse } from "@/model/authModel/authDataType";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,30 +24,43 @@ export default function LoginPage() {
       showLoading("Đang đăng nhập...");
 
       // ✅ Gọi API và nhận response đúng format
-      const data = await publicApiService.login({ email, password });
+      const data = await publicApiService.login({ email, password }) as LoginResponse;
+      
+      console.log('🔍 Login response:', data);
 
       // ✅ Kiểm tra succeeded và accessToken
-      if (data.succeeded && data.accessToken) {
+      const isSucceeded = data.succeeded || false;
+      const accessToken = data.accessToken;
+      
+      if (isSucceeded && accessToken) {
         const { setToken, setRefreshToken, setUserId } =
           useTokenInfoStorage.getState();
-        setToken(data.accessToken);
+        setToken(accessToken);
         setRefreshToken(data.refreshToken);
-        setUserId(data.user.id);
+        setUserId(data.user?.id);
+        
         // Lưu thông tin user vào localStorage nếu cần
-        localStorage.setItem("user", JSON.stringify(data.user));
+        const userData = data.user;
+        if (userData) {
+          localStorage.setItem("user", JSON.stringify(userData));
+        }
         localStorage.setItem("loginTime", Date.now().toString());
         
         // 🔍 Debug token info (development only)
-        if (process.env.NODE_ENV === 'development') {
-          console.log('🔐 Login successful - Token info:');
-          console.log('User roles from response:', data.user.roles);
-          console.log('Is teacher from token?', isTeacher(data.accessToken));
+        console.log('🔐 Login successful - Token info:');
+        console.log('User roles from response:', userData?.roles);
+        console.log('Is admin from token?', isAdmin(accessToken));
+        console.log('Is teacher from token?', isTeacher(accessToken));
+        
+        showSuccess(`Chào mừng ${userData?.firstName || userData?.username || 'User'}! 🔥`);
+        
+        // ✅ Redirect dựa theo role - Admin > Teacher > Dashboard
+        let targetPath = "/dashboard";
+        if (isAdmin(accessToken)) {
+          targetPath = "/admin";
+        } else if (isTeacher(accessToken)) {
+          targetPath = "/teacher";
         }
-        
-        showSuccess(`Chào mừng ${data.user.firstName}! 🔥`);
-        
-        // ✅ Redirect dựa theo role - Use setTimeout to ensure store is updated
-        const targetPath = isTeacher(data.accessToken) ? "/teacher" : "/dashboard";
         console.log(`✅ Redirecting to ${targetPath}`);
         
         // Small delay to ensure Zustand store is fully updated
@@ -59,7 +68,9 @@ export default function LoginPage() {
           router.replace(targetPath);
         }, 100);
       } else {
-        showError(data.message || "Đăng nhập thất bại 😢");
+        const errorMsg = data.message || "Đăng nhập thất bại 😢";
+        console.error('❌ Login failed - Response:', data);
+        showError(errorMsg);
       }
     } catch (error: unknown) {
       const err = error as AxiosError<{ message?: string }>;
