@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { adminApiService } from "@/services/AdminApiService";
 import type { AchievementDto } from "@/model/admin/adminTypes";
 import { showSuccess, showError } from "@/lib/toast";
-import { Trophy, Plus, Edit, Trash2, Power, PowerOff } from "lucide-react";
+import { Trophy, Plus, Edit, Trash2, Power, PowerOff, Search } from "lucide-react";
 import AchievementList from "./components/AchievementList";
 import CreateAchievementDialog from "./components/CreateAchievementDialog";
 import EditAchievementDialog from "./components/EditAchievementDialog";
@@ -16,6 +16,7 @@ export default function AdminAchievementsPage() {
   const [loading, setLoading] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingAchievement, setEditingAchievement] = useState<AchievementDto | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Load achievements from localStorage
   const loadAchievementsFromStorage = (): AchievementDto[] => {
@@ -303,28 +304,72 @@ export default function AdminAchievementsPage() {
     }
   };
 
+  // Filter achievements based on search term
+  const filteredAchievements = useMemo(() => {
+    if (!searchTerm.trim()) return achievements;
+    
+    const searchLower = searchTerm.toLowerCase().trim();
+    return achievements.filter(achievement => 
+      achievement.code?.toLowerCase().includes(searchLower) ||
+      achievement.name?.toLowerCase().includes(searchLower)
+    );
+  }, [achievements, searchTerm]);
+
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-            Quản lý Achievements
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Tạo và quản lý các thành tích trong hệ thống
-          </p>
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+              Quản lý Achievements
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              Tạo và quản lý các thành tích trong hệ thống
+            </p>
+          </div>
+          <button
+            onClick={() => setShowCreateDialog(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-linear-to-r from-orange-500 to-yellow-400 text-white rounded-lg hover:opacity-90 transition-opacity shadow"
+          >
+            <Plus className="w-5 h-5" />
+            Tạo Achievement
+          </button>
         </div>
-        <button
-          onClick={() => setShowCreateDialog(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-yellow-400 text-white rounded-lg hover:opacity-90 transition-opacity shadow"
-        >
-          <Plus className="w-5 h-5" />
-          Tạo Achievement
-        </button>
+
+        {/* Search bar */}
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-gray-400" />
+          </div>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Tìm kiếm theo code hoặc tên achievement..."
+            className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+          />
+          {searchTerm && (
+            <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+              <button
+                onClick={() => setSearchTerm("")}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                ×
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Results count */}
+        {searchTerm && (
+          <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
+            Tìm thấy {filteredAchievements.length} / {achievements.length} achievements
+          </p>
+        )}
       </div>
 
       <AchievementList
-        achievements={achievements}
+        achievements={filteredAchievements}
         loading={loading}
         onEdit={(achievement) => setEditingAchievement(achievement)}
         onDelete={handleDelete}

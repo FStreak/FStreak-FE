@@ -5,13 +5,16 @@ import { useEffect, useState } from "react";
 
 export default function LoadingSplash() {
   const [visible, setVisible] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const t = setTimeout(() => setVisible(false), 1600);
     return () => clearTimeout(t);
   }, []);
 
-  if (!visible) return null;
+  // Don't render on server to avoid hydration mismatch
+  if (!mounted || !visible) return null;
 
   // Inline animated flame SVG — morphing + flicker + grow/trim effect
   return (

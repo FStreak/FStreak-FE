@@ -225,14 +225,15 @@ export const adminApiService = {
   getAchievements: async (page: number = 1, pageSize: number = 100): Promise<{ items: AchievementDto[]; total: number; page: number; pageSize: number }> => {
     try {
       checkAdminAccess();
-      console.log("🔍 Requesting admin achievements:", { page, pageSize });
+      console.log("🔍 Requesting achievements from /api/Achievements");
       
-      const response = await apiService.privateApiClient.get<any>(
-        `/admin/achievements?page=${page}&pageSize=${pageSize}`
+      // Backend endpoint is /api/Achievements (returns all achievements)
+      const response = await apiService.privateApiClient.get<AchievementDto[]>(
+        `/Achievements`
       );
       const rawData = wrapResponse(response);
       
-      console.log("✅ Raw admin achievements API response:", rawData);
+      console.log("✅ Raw achievements API response:", rawData);
       console.log("✅ Response type:", typeof rawData);
       console.log("✅ Is array:", Array.isArray(rawData));
       
@@ -245,8 +246,9 @@ export const adminApiService = {
         total = rawData.length;
         console.log("✅ Backend returned array, achievements count:", achievements.length);
       } else if (rawData && typeof rawData === 'object') {
-        achievements = rawData.items || rawData.Items || rawData.data || rawData.Data || rawData.achievements || rawData.Achievements || [];
-        total = rawData.total || rawData.Total || rawData.count || rawData.Count || achievements.length;
+        const dataObj = rawData as any;
+        achievements = dataObj.items || dataObj.Items || dataObj.data || dataObj.Data || dataObj.achievements || dataObj.Achievements || [];
+        total = dataObj.total || dataObj.Total || dataObj.count || dataObj.Count || achievements.length;
         console.log("✅ Backend returned object, achievements count:", achievements.length, "total:", total);
       } else {
         console.warn("⚠️ Unexpected response format:", rawData);
@@ -257,8 +259,8 @@ export const adminApiService = {
       const normalized = {
         items: achievements,
         total: total,
-        page: rawData?.page || rawData?.Page || page,
-        pageSize: rawData?.pageSize || rawData?.PageSize || pageSize,
+        page: (rawData as any)?.page || (rawData as any)?.Page || page,
+        pageSize: (rawData as any)?.pageSize || (rawData as any)?.PageSize || pageSize,
       };
       
       console.log("✅ Normalized achievements response:", normalized);

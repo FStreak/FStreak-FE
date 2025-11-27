@@ -1,4 +1,5 @@
 import apiService from "./apiService";
+import { PaymentHistoryDto } from "@/model/payment/PaymentHistoryModel";
 
 export interface CreatePaymentDto {
   planId: string;
@@ -61,6 +62,32 @@ const paymentService = {
       return response.data;
     } catch (error: any) {
       console.error("❌ Lỗi kiểm tra trạng thái thanh toán:", error);
+      throw error;
+    }
+  },
+
+  // Lấy tất cả payments (Admin only)
+  getAllPayments: async (): Promise<PaymentHistoryDto[]> => {
+    try {
+      const response = await apiService.privateApiClient.get<PaymentHistoryDto[]>(
+        "/PayOS"
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error("❌ Lỗi lấy danh sách payments:", error);
+      throw error;
+    }
+  },
+
+  // Lấy payment history của user hiện tại
+  getMyPaymentHistory: async (): Promise<PaymentHistoryDto[]> => {
+    try {
+      const response = await apiService.privateApiClient.get<PaymentHistoryDto[]>(
+        "/PayOS/me"
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error("❌ Lỗi lấy payment history:", error);
       throw error;
     }
   },
