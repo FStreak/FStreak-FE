@@ -24,6 +24,8 @@ export default function AdminPaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [stats, setStats] = useState({
     total: 0,
     totalAmount: 0,
@@ -36,6 +38,8 @@ export default function AdminPaymentsPage() {
     try {
       setLoading(true);
       const data = await paymentService.getAllPayments();
+      console.log("🔍 Payment data received:", data);
+      console.log("🔍 First payment userName:", data[0]?.userName);
       setPayments(data);
       setFilteredPayments(data);
       calculateStats(data);
@@ -71,6 +75,7 @@ export default function AdminPaymentsPage() {
     }
 
     setFilteredPayments(filtered);
+    setCurrentPage(1); // Reset to first page when filters change
   }, [searchTerm, statusFilter, payments]);
 
   const calculateStats = (data: PaymentHistoryDto[]) => {
@@ -117,6 +122,22 @@ export default function AdminPaymentsPage() {
       style: "currency",
       currency: "VND",
     }).format(amount);
+  };
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentPayments = filteredPayments.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1);
   };
 
   if (loading) {
@@ -232,6 +253,19 @@ export default function AdminPaymentsPage() {
                 <option value="cancelled">Cancelled</option>
               </select>
             </div>
+            <div className="w-full md:w-32">
+              <select
+                value={itemsPerPage}
+                onChange={(e) => handleItemsPerPageChange(e.target.value)}
+                className="w-full h-10 px-3 py-2 text-sm rounded-md border border-input bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="5">5 / trang</option>
+                <option value="10">10 / trang</option>
+                <option value="20">20 / trang</option>
+                <option value="50">50 / trang</option>
+                <option value="100">100 / trang</option>
+              </select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -261,15 +295,19 @@ export default function AdminPaymentsPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredPayments.map((payment) => (
+                  currentPayments.map((payment) => (
                     <TableRow key={payment.id}>
                       <TableCell className="font-mono font-medium">
                         {payment.orderCode}
                       </TableCell>
                       <TableCell>
                         <div>
-                          <div className="font-medium">{payment.userName}</div>
-                          <div className="text-xs text-gray-500">{payment.userId}</div>
+                          <div className="font-medium">
+                            {payment.userName || "Unknown User"}
+                          </div>
+                          <div className="text-xs text-gray-500 font-mono">
+                            {payment.userId.substring(0, 8)}...
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>{payment.planId}</TableCell>
@@ -297,10 +335,105 @@ export default function AdminPaymentsPage() {
         </CardContent>
       </Card>
 
-      {/* Results Info */}
-      <div className="text-sm text-gray-600 dark:text-gray-400 text-center">
-        Hiển thị {filteredPayments.length} / {payments.length} giao dịch
-      </div>
+      {/* Pagination */}
+      {filteredPayments.length > 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              {/* Page info */}
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Hiển thị {startIndex + 1} - {Math.min(endIndex, filteredPayments.length)} trong tổng số {filteredPayments.length} giao dịch
+              </div>
+
+              {/* Pagination buttons */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(1)}
+                  disabled={currentPage === 1}
+                >
+                  Đầu
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  Trước
+                </Button>
+
+                {/* Page numbers */}
+                <div className="flex gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handlePageChange(pageNum)}
+                        className="min-w-10"
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  Sau
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(totalPages)}
+                  disabled={currentPage === totalPages}
+                >
+                  Cuối
+                </Button>
+              </div>
+
+              {/* Go to page */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Trang:</span>
+                <Input
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  value={currentPage}
+                  onChange={(e) => {
+                    const page = parseInt(e.target.value);
+                    if (page >= 1 && page <= totalPages) {
+                      handlePageChange(page);
+                    }
+                  }}
+                  className="w-20 h-8 text-center"
+                />
+                <span className="text-sm text-gray-600 dark:text-gray-400">/ {totalPages}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Results Info - Removed as it's now in pagination */}
     </div>
   );
 }
