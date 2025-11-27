@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Navbar from "@/components/navbar/Navbar";
 import { Star, CheckSquare, Clock, Globe, Award } from "lucide-react";
@@ -54,7 +54,7 @@ export default function CourseInfoPage() {
   }
 
   const rows: Array<{
-    icon: JSX.Element;
+    icon: React.ReactElement;
     title: string;
     value: string;
   }> = [
