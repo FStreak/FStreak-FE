@@ -6,83 +6,105 @@ import CoinDisplay from "./components/CoinDisplay";
 import MascotHeader from "./components/MascotHeader";
 import ShopSectionCarousel from "./components/ShopSectionCarousel";
 import ApplyButton from "./components/ApplyButton";
-import { Flame, Circle, UserCircle2, Palette } from "lucide-react";
-import { useState, useEffect } from "react";
-import { shopApiService } from "@/services/ShopApiService";
-import type { ShopItemDto } from "@/model/admin/adminTypes";
-import { showError } from "@/lib/toast";
+import { Sparkles } from "lucide-react";
+import { useState } from "react";
 
-// Category mapping with icons
-const categoryConfig: Record<string, { title: string; icon: React.ReactNode }> = {
-  Skin: {
-    title: "Skin",
-    icon: <Flame className="w-5 h-5 text-orange-500" />,
+// Import premium frame images
+import groundFrame from "@/premium frame/ground frame.png";
+import leafFrame from "@/premium frame/leaf frame.png";
+import stormFrame from "@/premium frame/storm frame.png";
+import waterFrame from "@/premium frame/water frame.png";
+import flowerFrame from "@/premium frame/flower frame.png";
+
+// Import premium mascot images
+import groundMascot from "@/premium mascot/ground mascot.png";
+import leafMascot from "@/premium mascot/leaf mascot.png";
+import stormMascot from "@/premium mascot/storm mascot.png";
+import waterMascot from "@/premium mascot/water mascot.png";
+import flowerMascot from "@/premium mascot/flower mascot.png";
+
+// Premium Frame items
+const premiumFrameItems = [
+  {
+    id: "premium-frame-ground",
+    name: "Ground Frame",
+    img: groundFrame.src,
+    price: 100,
+    locked: false,
   },
-  Frame: {
-    title: "Intellectual Profile Frame",
-    icon: <Circle className="w-5 h-5 text-orange-500" />,
+  {
+    id: "premium-frame-leaf",
+    name: "Leaf Frame",
+    img: leafFrame.src,
+    price: 100,
+    locked: false,
   },
-  Mascot: {
-    title: "Mascot Body",
-    icon: <UserCircle2 className="w-5 h-5 text-orange-500" />,
+  {
+    id: "premium-frame-storm",
+    name: "Storm Frame",
+    img: stormFrame.src,
+    price: 100,
+    locked: false,
   },
-  Club: {
-    title: "Club Frame",
-    icon: <Palette className="w-5 h-5 text-orange-500" />,
+  {
+    id: "premium-frame-water",
+    name: "Water Frame",
+    img: waterFrame.src,
+    price: 100,
+    locked: false,
   },
-};
+  {
+    id: "premium-frame-flower",
+    name: "Flower Frame",
+    img: flowerFrame.src,
+    price: 100,
+    locked: false,
+  },
+];
+
+// Premium Mascot items
+const premiumMascotItems = [
+  {
+    id: "premium-mascot-ground",
+    name: "Ground Mascot",
+    img: groundMascot.src,
+    price: 100,
+    locked: false,
+  },
+  {
+    id: "premium-mascot-leaf",
+    name: "Leaf Mascot",
+    img: leafMascot.src,
+    price: 100,
+    locked: false,
+  },
+  {
+    id: "premium-mascot-storm",
+    name: "Storm Mascot",
+    img: stormMascot.src,
+    price: 100,
+    locked: false,
+  },
+  {
+    id: "premium-mascot-water",
+    name: "Water Mascot",
+    img: waterMascot.src,
+    price: 100,
+    locked: false,
+  },
+  {
+    id: "premium-mascot-flower",
+    name: "Flower Mascot",
+    img: flowerMascot.src,
+    price: 100,
+    locked: false,
+  },
+];
 
 export default function ShopPage() {
   const [coins, setCoins] = useState(120);
-  const [shopItems, setShopItems] = useState<ShopItemDto[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadShopItems();
-  }, []);
-
-  const loadShopItems = async () => {
-    try {
-      setLoading(true);
-      const items = await shopApiService.getShopItems(true); // activeOnly = true
-      setShopItems(items);
-    } catch (error: any) {
-      console.error("Error loading shop items:", error);
-      showError(error?.response?.data?.message || "Không thể tải danh sách sản phẩm");
-      setShopItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Group items by category
-  const groupedItems = shopItems.reduce((acc, item) => {
-    const category = item.category || "Other";
-    if (!acc[category]) {
-      acc[category] = [];
-    }
-    acc[category].push(item);
-    return acc;
-  }, {} as Record<string, ShopItemDto[]>);
-
-  // Create sections from grouped items
-  const shopSections = Object.entries(groupedItems).map(([category, items]) => {
-    const config = categoryConfig[category] || {
-      title: category,
-      icon: <Circle className="w-5 h-5 text-orange-500" />,
-    };
-    return {
-      title: config.title,
-      icon: config.icon,
-      items: items.map((item) => ({
-        id: item.id,
-        name: item.name,
-        img: item.imageUrl || "/shop/default.png",
-        price: item.price,
-        locked: !item.isAvailable,
-      })),
-    };
-  });
+  const [selectedMascot, setSelectedMascot] = useState<{ id: string | number; name: string; img: string; price?: number } | null>(null);
+  const [selectedFrame, setSelectedFrame] = useState<{ id: string | number; name: string; img: string; price?: number } | null>(null);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-orange-50 to-yellow-50 dark:from-gray-950 dark:to-gray-900">
@@ -96,28 +118,35 @@ export default function ShopPage() {
 
       {/* Main Content */}
       <main className="max-w-5xl mx-auto px-6 pb-16">
-        <MascotHeader />
-        {loading ? (
-          <div className="flex justify-center items-center py-20">
-            <div className="text-gray-500 dark:text-gray-400">Đang tải...</div>
-          </div>
-        ) : shopSections.length > 0 ? (
-          <div className="space-y-10 mt-6">
-            {shopSections.map((section) => (
-              <ShopSectionCarousel
-                key={section.title}
-                title={section.title}
-                icon={section.icon}
-                items={section.items}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="flex justify-center items-center py-20">
-            <div className="text-gray-500 dark:text-gray-400">Không có sản phẩm nào</div>
-          </div>
-        )}
-        <ApplyButton />
+        <MascotHeader 
+          selectedMascot={selectedMascot ? { img: selectedMascot.img, name: selectedMascot.name } : null}
+          selectedFrame={selectedFrame ? { img: selectedFrame.img, name: selectedFrame.name } : null}
+        />
+        <div className="space-y-10 mt-6">
+          {/* Premium Frame Section */}
+          <ShopSectionCarousel
+            title="Premium Frame"
+            icon={<Sparkles className="w-5 h-5 text-orange-500" />}
+            items={premiumFrameItems}
+            category="Frame"
+            selectedItemId={selectedFrame?.id}
+            onItemSelect={(item) => setSelectedFrame(item)}
+          />
+          
+          {/* Premium Mascot Section */}
+          <ShopSectionCarousel
+            title="Premium Mascot"
+            icon={<Sparkles className="w-5 h-5 text-orange-500" />}
+            items={premiumMascotItems}
+            category="Mascot"
+            selectedItemId={selectedMascot?.id}
+            onItemSelect={(item) => setSelectedMascot(item)}
+          />
+        </div>
+        <ApplyButton 
+          selectedMascot={selectedMascot}
+          selectedFrame={selectedFrame}
+        />
       </main>
     </div>
   );

@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { ShoppingBag, Coins, Sparkles } from "lucide-react";
+import groundMascot from "@/premium mascot/ground mascot.png";
+import { showInfo } from "@/lib/toast";
 
 export default function MascotShop() {
   return (
@@ -36,7 +38,7 @@ export default function MascotShop() {
         className="w-48 h-40 relative mb-4 flex items-center justify-center"
       >
         <Image
-          src="/mascot-shop.png"
+          src={groundMascot.src}
           alt="Mascot Shopping"
           width={200}
           height={160}
@@ -54,7 +56,10 @@ export default function MascotShop() {
       </p>
 
       {/* 💰 Coin balance */}
-      <div className="flex items-center gap-2 mb-4 text-gray-700 dark:text-gray-300">
+      <div 
+        onClick={() => showInfo("Coming soon")}
+        className="flex items-center gap-2 mb-4 text-gray-700 dark:text-gray-300 cursor-pointer hover:opacity-80 transition-opacity"
+      >
         <Coins className="w-4 h-4 text-yellow-500" />
         <span className="text-sm">Balance:</span>
         <span className="font-semibold text-orange-500">120 Coins</span>

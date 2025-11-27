@@ -15,12 +15,18 @@ interface ShopSectionProps {
     price?: number;
     locked?: boolean;
   }[];
+  selectedItemId?: string | number | null;
+  onItemSelect?: (item: { id: string | number; name: string; img: string; price?: number }) => void;
+  category?: string;
 }
 
 export default function ShopSectionCarousel({
   title,
   icon,
   items,
+  selectedItemId,
+  onItemSelect,
+  category,
 }: ShopSectionProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -106,6 +112,12 @@ export default function ShopSectionCarousel({
               img={item.img}
               price={item.price}
               locked={item.locked}
+              selected={selectedItemId === item.id}
+              onClick={() => {
+                if (!item.locked && onItemSelect) {
+                  onItemSelect(item);
+                }
+              }}
             />
           </motion.div>
         ))}

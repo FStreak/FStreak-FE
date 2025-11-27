@@ -2,13 +2,15 @@
 
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Lock, Coins } from "lucide-react";
+import { Lock, Coins, Check } from "lucide-react";
 
 interface ShopItemProps {
   name: string;
   img: string;
   price?: number;
   locked?: boolean;
+  selected?: boolean;
+  onClick?: () => void;
 }
 
 export default function ShopItem({
@@ -16,16 +18,19 @@ export default function ShopItem({
   img,
   price = 50,
   locked = false,
+  selected = false,
+  onClick,
 }: ShopItemProps) {
   return (
     <motion.div
       whileHover={{ scale: 1.06 }}
       whileTap={{ scale: 0.97 }}
+      onClick={locked ? undefined : onClick}
       className={`relative flex flex-col items-center justify-center p-5 rounded-2xl 
         bg-gradient-to-br from-white to-orange-50/20 dark:from-gray-800 dark:to-gray-900 
-        border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl 
-        transition-all group cursor-pointer overflow-hidden
-        ${locked ? "opacity-80 grayscale" : "opacity-100"}
+        border-2 transition-all group cursor-pointer overflow-hidden
+        ${locked ? "opacity-80 grayscale border-gray-200 dark:border-gray-700" : ""}
+        ${selected ? "border-orange-500 shadow-xl ring-2 ring-orange-300" : "border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl"}
       `}
     >
       {/* 🖼️ Ảnh sản phẩm */}
@@ -40,6 +45,11 @@ export default function ShopItem({
         {locked && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-xl">
             <Lock className="w-6 h-6 text-white/90" />
+          </div>
+        )}
+        {selected && !locked && (
+          <div className="absolute top-1 right-1 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center shadow-lg">
+            <Check className="w-4 h-4 text-white" />
           </div>
         )}
       </div>

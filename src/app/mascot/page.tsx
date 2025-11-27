@@ -2,7 +2,6 @@
 
 import Navbar from "@/components/navbar/Navbar";
 import MascotInfo from "./components/MascotInfo";
-import MascotTasks from "./components/MascotTasks";
 import MascotShop from "./components/MascotShop";
 
 export default function MascotPage() {
@@ -14,8 +13,7 @@ export default function MascotPage() {
           Your Mascot Journey 🦊
         </h1>
         <MascotInfo />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-10">
-          <MascotTasks />
+        <div className="flex justify-center mt-10">
           <MascotShop />
         </div>
       </main>
