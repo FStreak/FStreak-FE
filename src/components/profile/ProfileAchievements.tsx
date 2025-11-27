@@ -149,9 +149,11 @@ export default function ProfileAchievements() {
                 {ua.achievement.description}
               </p>
             )}
-            <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-              {new Date(ua.earnedAt).toLocaleDateString('vi-VN')}
-            </p>
+            {ua.earnedAt && (
+              <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+                {new Date(ua.earnedAt).toLocaleDateString('vi-VN')}
+              </p>
+            )}
           </div>
         ))}
       </div>

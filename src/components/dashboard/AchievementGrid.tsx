@@ -98,9 +98,11 @@ export default function AchievementGrid() {
                   +{ua.achievement.points} điểm
                 </p>
               )}
-              <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-                Đạt được: {new Date(ua.earnedAt).toLocaleDateString('vi-VN')}
-              </p>
+              {ua.earnedAt && (
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+                  Đạt được: {new Date(ua.earnedAt).toLocaleDateString('vi-VN')}
+                </p>
+              )}
             </div>
           );
         })}
