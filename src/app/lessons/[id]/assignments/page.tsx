@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Sparkles, Loader2, BookOpen, CheckCircle, AlertCircle } from "lucide-react";
 import { useLesson } from "@/hooks/useLesson";
 import { aiService } from "@/services/aiService";
-import type { Quiz, GenerateQuizRequest, QuestionDifficulty, QuestionType } from "@/model/ai/aiTypes";
+import type { Quiz, GenerateQuizRequest } from "@/model/ai/aiTypes";
+import { QuestionDifficulty, QuestionType } from "@/model/ai/aiTypes";
 import { toast } from "@/lib/toast";
 
 export default function AssignmentsPage() {
