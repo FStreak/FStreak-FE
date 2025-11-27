@@ -6,9 +6,23 @@ interface Reading {
   id: string;
   title: string;
   minutes: number;
+  url?: string;
 }
 
 export default function LessonReadings({ readings }: { readings: Reading[] }) {
+  if (readings.length === 0) {
+    return (
+      <div className="mt-6">
+        <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">
+          Readings
+        </h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          No reading materials available for this lesson.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="mt-6">
       <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">
@@ -28,12 +42,23 @@ export default function LessonReadings({ readings }: { readings: Reading[] }) {
                 Reading • {r.minutes} min
               </div>
             </div>
-            <Link
-              href={`#${r.id}`}
-              className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-orange-500 to-yellow-400 text-white text-sm font-semibold hover:shadow-md transition-all"
-            >
-              Open
-            </Link>
+            {r.url ? (
+              <a
+                href={r.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-orange-500 to-yellow-400 text-white text-sm font-semibold hover:shadow-md transition-all"
+              >
+                Open
+              </a>
+            ) : (
+              <Link
+                href={`#${r.id}`}
+                className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-orange-500 to-yellow-400 text-white text-sm font-semibold hover:shadow-md transition-all"
+              >
+                Open
+              </Link>
+            )}
           </li>
         ))}
       </ul>

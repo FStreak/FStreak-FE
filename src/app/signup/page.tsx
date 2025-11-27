@@ -58,7 +58,8 @@ export default function SignUpPage() {
         // Check and award First-Step achievement after successful registration
         if (data.user.id) {
           // Use async/await to ensure achievement is awarded properly
-          // Delay slightly to ensure backend has fully processed the registration
+          // Delay to ensure backend has fully processed the registration
+          // Try multiple times with increasing delays
           setTimeout(async () => {
             try {
               await achievementService.checkFirstStepAchievement(data.user.id);
@@ -66,7 +67,16 @@ export default function SignUpPage() {
               console.error("❌ Failed to award First-Step achievement:", error);
               // Don't show error to user - this is a background process
             }
-          }, 1500); // 1.5s delay to ensure user is fully registered
+          }, 2000); // 2s delay to ensure user is fully registered
+          
+          // Also try again after a longer delay (in case backend needs more time)
+          setTimeout(async () => {
+            try {
+              await achievementService.checkFirstStepAchievement(data.user.id);
+            } catch (error) {
+              console.error("❌ Failed to award First-Step achievement (retry):", error);
+            }
+          }, 5000); // 5s delay as backup
         }
         
         // 🔍 Debug token info (development only)

@@ -7,6 +7,7 @@ import {
   Info,
   Calendar,
   GraduationCap,
+  ClipboardCheck,
 } from "lucide-react";
 
 interface LessonNavLinksProps {
@@ -25,6 +26,11 @@ export default function LessonNavLinks({
       label: "Course",
       icon: <GraduationCap className="w-4 h-4" />,
       href: `${base}/course`,
+    },
+    {
+      label: "Assignments",
+      icon: <ClipboardCheck className="w-4 h-4" />,
+      href: `${base}/assignments`,
     },
     {
       label: "Grades",

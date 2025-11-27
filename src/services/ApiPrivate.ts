@@ -86,9 +86,10 @@ export const privateApiService = {
   /** Get user achievements */
   getUserAchievements: async (userId?: string): Promise<UserAchievementDto[]> => {
     try {
-      // Always use /me endpoint for current user, even if userId is provided
-      // The /me endpoint should return achievements for the authenticated user
-      const url = `/Achievements/me`;
+      // Use /me endpoint for current user, or /users/{userId} for specific user
+      const url = userId 
+        ? `/Achievements/users/${userId}`
+        : `/Achievements/me`;
       console.log("🔍 Fetching achievements from:", url);
       const response = await apiService.privateApiClient.get<UserAchievementDto[]>(url);
       const data = wrapResponse(response);
@@ -145,80 +146,39 @@ export const privateApiService = {
 
   /** Claim achievement for user */
   claimAchievement: async (userId: string, achievementId: string): Promise<UserAchievementDto> => {
-    // According to OpenAPI spec, the endpoint is:
-    // POST /api/Achievements/users/{userId}/achievements/{achievementId}/claim
+    // According to OpenAPI spec: POST /api/Achievements/users/{userId}/achievements/{achievementId}/claim
+    // Backend will automatically create user achievement if needed (based on criteriaJson)
     
-    // First, check if user achievement already exists
-    let userAchievementExists = false;
     try {
-      console.log(`🔍 Checking if user achievement exists: GET /Achievements/users/${userId}/achievements/${achievementId}`);
-      const existing = await apiService.privateApiClient.get<UserAchievementDto>(
-        `/Achievements/users/${userId}/achievements/${achievementId}`
-      );
-      const existingData = wrapResponse(existing);
-      console.log(`✅ User achievement already exists:`, existingData);
-      userAchievementExists = true;
-      
-      // If it exists and is already claimed, return it
-      if (existingData.isClaimed) {
-        console.log(`✅ Achievement already claimed`);
-        return existingData;
-      }
-      
-      // If it exists but not claimed, try to claim it
-      console.log(`🔍 User achievement exists but not claimed, attempting to claim...`);
-    } catch (checkError: any) {
-      // If 404, user achievement doesn't exist - need to create it first
-      if (checkError?.response?.status === 404) {
-        console.log(`⚠️ User achievement doesn't exist yet (404). Attempting to create it first...`);
-        userAchievementExists = false;
+      // First, check if user achievement already exists and is claimed
+      try {
+        const existing = await apiService.privateApiClient.get<UserAchievementDto>(
+          `/Achievements/users/${userId}/achievements/${achievementId}`
+        );
+        const userAchievement = wrapResponse(existing);
         
-        // Try to create user achievement first
-        // Note: OpenAPI spec doesn't show a POST endpoint to create user achievement,
-        // but we'll try common patterns
-        const createEndpoints = [
-          `/Achievements/users/${userId}/achievements/${achievementId}`,  // POST to create
-          `/Achievements/me/${achievementId}`,                             // POST for current user
-        ];
-        
-        for (const createEndpoint of createEndpoints) {
-          try {
-            console.log(`🔍 Trying to create user achievement: POST ${createEndpoint}`);
-            const createResponse = await apiService.privateApiClient.post<UserAchievementDto>(
-              createEndpoint,
-              {} // Empty body, backend might auto-populate
-            );
-            const created = wrapResponse(createResponse);
-            console.log(`✅ Successfully created user achievement:`, created);
-            userAchievementExists = true;
-            
-            // If created but not claimed, continue to claim it
-            if (!created.isClaimed) {
-              break; // Break and continue to claim
-            } else {
-              return created; // Already claimed, return it
-            }
-          } catch (createError: any) {
-            console.log(`⚠️ Create endpoint ${createEndpoint} failed:`, createError?.response?.status);
-            // Continue to next endpoint or proceed to claim
-            continue;
-          }
+        // If it exists and is already claimed, return it
+        if (userAchievement.isClaimed) {
+          console.log(`✅ Achievement already claimed`);
+          return userAchievement;
         }
-      } else {
-        console.warn(`⚠️ Error checking user achievement:`, checkError?.response?.status, checkError?.response?.data);
+        
+        // If it exists but not claimed, continue to claim it
+        console.log(`🔍 User achievement exists but not claimed, attempting to claim...`);
+      } catch (checkError: any) {
+        // 404 means user achievement doesn't exist yet
+        // Backend should automatically create it when claim is called (based on criteriaJson)
+        if (checkError?.response?.status === 404) {
+          console.log(`ℹ️ User achievement doesn't exist yet (404). Backend will create it when claiming.`);
+        } else {
+          console.warn(`⚠️ Error checking user achievement:`, checkError?.response?.status);
+          // Continue to claim anyway - backend might still handle it
+        }
       }
-    }
-    
-    // If user achievement doesn't exist and we couldn't create it,
-    // the backend might automatically create it when claiming
-    if (!userAchievementExists) {
-      console.log(`⚠️ User achievement doesn't exist. Backend might auto-create it when claiming.`);
-    }
-    
-    // Try the official claim endpoint from OpenAPI spec
-    try {
+      
+      // Call the claim endpoint - backend will create user achievement if needed
       const endpoint = `/Achievements/users/${userId}/achievements/${achievementId}/claim`;
-      console.log(`🔍 Claiming achievement via official endpoint: POST ${endpoint}`);
+      console.log(`🎯 Claiming achievement: POST ${endpoint}`);
       const response = await apiService.privateApiClient.post<UserAchievementDto>(endpoint);
       const result = wrapResponse(response);
       console.log(`✅ Successfully claimed achievement:`, result);
@@ -232,31 +192,7 @@ export const privateApiService = {
         message: error?.message
       });
       
-      // If 400 with "User achievement not found", it means backend requires user achievement to exist first
-      if (error?.response?.status === 400) {
-        const errorData = error?.response?.data;
-        const errorMessage = typeof errorData === 'string' ? errorData : errorData?.message || 'Bad Request';
-        
-        if (errorMessage.includes('not found') || errorMessage.includes('User achievement not found')) {
-          // Backend requires user achievement to exist first
-          // This might mean achievements are automatically awarded by backend based on user actions
-          // and cannot be manually claimed
-          console.warn(
-            `⚠️ Backend requires user achievement to exist before claiming. ` +
-            `This suggests achievements are automatically awarded by the backend based on user actions. ` +
-            `You may not need to manually claim achievements.`
-          );
-          
-          // Don't throw error, just log warning
-          // The achievement might be automatically awarded by backend
-          throw new Error(
-            `Cannot manually claim achievement: Backend requires user achievement to exist first. ` +
-            `Achievements may be automatically awarded by the backend based on user actions ` +
-            `(e.g., signup, streak check-in). Please check if the achievement should be automatically awarded.`
-          );
-        }
-      }
-      
+      // Re-throw error so caller can handle it
       throw error;
     }
   },
@@ -265,15 +201,22 @@ export const privateApiService = {
   /** Get all reminders for current user */
   getReminders: async (): Promise<ReminderEntry[]> => {
     try {
-      const response = await apiService.privateApiClient.get<ReminderEntry[]>("/reminders");
+      // Try with capital R first (matching API spec)
+      const response = await apiService.privateApiClient.get<ReminderEntry[]>("/Reminders");
       return wrapResponse(response);
     } catch (err: unknown) {
-      // If it's a network error (no response), return empty list so UI can continue.
-      const maybeAxios = err as { response?: unknown };
-      if (!maybeAxios.response) {
-        console.warn("Network error fetching reminders:", err);
+      // If it's a network error (CORS, no response), return empty list so UI can continue.
+      const maybeAxios = err as { response?: { status?: number } };
+      if (!maybeAxios.response || maybeAxios.response.status === 0) {
+        console.warn("⚠️ Network/CORS error fetching reminders (ignored):", err);
         return [];
       }
+      // If 404/405, endpoint doesn't exist
+      if (maybeAxios.response?.status === 404 || maybeAxios.response?.status === 405) {
+        console.warn("⚠️ GET /Reminders endpoint not available (404/405), returning empty array");
+        return [];
+      }
+      // For other errors, rethrow
       throw err;
     }
   },
@@ -446,9 +389,167 @@ export const privateApiService = {
 
   // ============ LESSONS APIs ============
   /** Get all published lessons (for students/users) */
+  /** 
+   * Strategy:
+   * 1. Try GET /Lessons first (if backend supports it)
+   * 2. If 405/404, fallback to aggregating from all teachers
+   */
   getAllLessons: async (): Promise<Lesson[]> => {
-    const response = await apiService.privateApiClient.get<Lesson[]>("/Lessons");
-    return wrapResponse(response);
+    try {
+      // Try direct endpoint first
+      const response = await apiService.privateApiClient.get<Lesson[]>("/Lessons");
+      return wrapResponse(response);
+    } catch (error: any) {
+      // If 405 Method Not Allowed or 404, endpoint doesn't exist
+      if (error?.response?.status === 405 || error?.response?.status === 404) {
+        console.warn("⚠️ GET /Lessons endpoint not available (405/404), trying fallback: aggregate from all teachers");
+        
+        try {
+          // Fallback: Get all users, filter teachers, then get lessons from each teacher
+          console.log("🔄 Starting fallback: fetching all users...");
+          const allUsers = await privateApiService.getAllUsers();
+          console.log(`👥 Total users fetched: ${allUsers.length}`);
+          
+          // Debug: Log first few users to see structure
+          if (allUsers.length > 0) {
+            console.log("🔍 Sample user object:", allUsers[0]);
+            console.log("🔍 User roles field:", allUsers[0].roles);
+            console.log("🔍 User object keys:", Object.keys(allUsers[0]));
+          }
+          
+          // Filter users with Teacher role
+          // Check multiple possible role field names and formats
+          const teachers = allUsers.filter(user => {
+            // Try different possible role field names
+            const roles = 
+              user.roles || 
+              (user as any).Roles || 
+              (user as any).role || 
+              (user as any).Role || 
+              [];
+            
+            // Handle both array and string formats
+            let roleArray: string[] = [];
+            if (Array.isArray(roles)) {
+              roleArray = roles;
+            } else if (typeof roles === 'string') {
+              roleArray = [roles];
+            }
+            
+            // Check for teacher role (case-insensitive)
+            const hasTeacherRole = roleArray.some((role: string) => {
+              const normalizedRole = String(role).toLowerCase().trim();
+              return normalizedRole === 'teacher' || normalizedRole === 'teachers';
+            });
+            
+            if (hasTeacherRole) {
+              console.log(`👨‍🏫 Found teacher: ${user.userName} (ID: ${user.id}), roles:`, roleArray);
+            }
+            
+            return hasTeacherRole;
+          });
+          
+          console.log(`📚 Found ${teachers.length} teachers from roles, fetching lessons...`);
+          
+          // Always try to get lessons from all users as fallback
+          // This ensures we get lessons even if roles are not properly set
+          let allLessonsFromUsers: Lesson[] = [];
+          
+          if (teachers.length === 0) {
+            console.warn("⚠️ No teachers found from users list (roles might not be in user object)!");
+            console.warn("💡 Trying alternative: try to get lessons from all users (brute force approach)...");
+          } else {
+            console.log("✅ Found teachers from roles, but also trying all users to ensure we get all lessons...");
+          }
+          
+          // Always try to get lessons from all users as fallback
+          // This ensures we get lessons even if roles are not properly set
+          try {
+            console.log(`🔄 Trying to fetch lessons from all ${allUsers.length} users...`);
+            
+            const lessonPromises = allUsers.map(async (user, index) => {
+              try {
+                const userId = user.id || (user as any).userId || (user as any).Id;
+                if (!userId) {
+                  return [];
+                }
+                
+                // Try to get lessons for this user (might fail if not a teacher)
+                const lessons = await privateApiService.getLessonsByTeacher(userId);
+                if (lessons && lessons.length > 0) {
+                  console.log(`✅ Found ${lessons.length} lessons from user ${user.userName} (${userId}) [${index + 1}/${allUsers.length}]`);
+                }
+                return lessons || [];
+              } catch (err: any) {
+                // Silently ignore errors (user might not be a teacher)
+                // Only log if it's not a 404/400 (expected for non-teachers)
+                if (err?.response?.status !== 404 && err?.response?.status !== 400) {
+                  console.warn(`⚠️ Unexpected error fetching lessons for user ${user.userName}:`, err?.response?.status);
+                }
+                return [];
+              }
+            });
+            
+            const allLessonsArrays = await Promise.all(lessonPromises);
+            allLessonsFromUsers = allLessonsArrays.flat();
+            
+            console.log(`📚 Total lessons found from all users: ${allLessonsFromUsers.length}`);
+          } catch (fallbackErr) {
+            console.error("❌ Error fetching lessons from all users:", fallbackErr);
+          }
+          
+          // Combine lessons from identified teachers and all users
+          let allLessons: Lesson[] = [];
+          
+          if (teachers.length > 0) {
+            // Get lessons from identified teachers
+            const lessonPromises = teachers.map(async (teacher) => {
+              try {
+                const teacherId = teacher.id || (teacher as any).userId || (teacher as any).Id;
+                if (!teacherId) {
+                  console.warn(`⚠️ Teacher ${teacher.userName} has no ID, skipping`);
+                  return [];
+                }
+                console.log(`📖 Fetching lessons for teacher ${teacher.userName} (${teacherId})...`);
+                const lessons = await privateApiService.getLessonsByTeacher(teacherId);
+                console.log(`✅ Got ${lessons?.length || 0} lessons from ${teacher.userName}`, lessons);
+                return lessons || [];
+              } catch (err) {
+                console.error(`❌ Failed to fetch lessons for teacher ${teacher.userName}:`, err);
+                return [];
+              }
+            });
+            
+            const teacherLessonsArrays = await Promise.all(lessonPromises);
+            const teacherLessons = teacherLessonsArrays.flat();
+            allLessons = [...teacherLessons, ...allLessonsFromUsers];
+          } else {
+            // Use lessons from all users if no teachers identified
+            allLessons = [...allLessonsFromUsers];
+          }
+          
+          if (allLessons.length === 0) {
+            console.warn("⚠️ No lessons found from any source");
+            return [];
+          }
+          
+          // Remove duplicates
+          const uniqueLessons = Array.from(
+            new Map(allLessons.map(lesson => [lesson.id, lesson])).values()
+          );
+          
+          console.log(`✅ Aggregated ${uniqueLessons.length} unique lessons (${teachers.length} teachers identified, ${allLessonsFromUsers.length} from all users)`);
+          return uniqueLessons;
+        } catch (fallbackError) {
+          console.error("❌ Fallback also failed:", fallbackError);
+          console.warn("💡 Backend may need to add GET /api/Lessons endpoint for published lessons");
+          return [];
+        }
+      }
+      // For other errors, rethrow
+      console.error("❌ Error fetching all lessons:", error);
+      throw error;
+    }
   },
 
   /** Get all lessons for a specific teacher */

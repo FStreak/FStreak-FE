@@ -432,8 +432,102 @@ export const adminApiService = {
   /** Create shop item */
   createShopItem: async (data: CreateShopItemDto): Promise<ShopItemDto> => {
     checkAdminAccess();
-    const response = await apiService.privateApiClient.post<ShopItemDto>(`/admin/shop/items`, data);
-    return wrapResponse(response);
+    
+    // Convert file to base64 if present, otherwise use imageUrl
+    let imageUrlToSend = data.imageUrl;
+    
+    if (data.imageFile) {
+      // Check file size (limit to 1MB to avoid connection issues)
+      const maxSize = 1 * 1024 * 1024; // 1MB
+      if (data.imageFile.size > maxSize) {
+        throw new Error(`File ảnh quá lớn (${(data.imageFile.size / 1024 / 1024).toFixed(2)}MB). Vui lòng chọn file nhỏ hơn 1MB.`);
+      }
+      
+      // Convert file to base64 data URL
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(data.imageFile!);
+      });
+      
+      try {
+        imageUrlToSend = await base64Promise;
+        console.log("📤 Converted image file to base64:", {
+          originalSize: data.imageFile.size,
+          base64Length: imageUrlToSend.length,
+          sizeInMB: (imageUrlToSend.length / 1024 / 1024).toFixed(2),
+        });
+        
+        // Warn if base64 is still very large
+        if (imageUrlToSend.length > 500000) { // ~500KB base64
+          console.warn("⚠️ Base64 image is large, may cause connection issues");
+        }
+      } catch (error) {
+        console.error("❌ Error converting file to base64:", error);
+        throw new Error("Không thể convert file ảnh");
+      }
+    }
+    
+    // Always use JSON - use camelCase (standard JSON convention)
+    // Ensure price is a number, not string
+    // Don't send empty strings - only send fields with actual values
+    const jsonData: any = {
+      name: data.name.trim(),
+      price: Number(data.price), // Ensure it's a number
+    };
+    
+    // Only add optional fields if they have values
+    if (data.description && data.description.trim()) {
+      jsonData.description = data.description.trim();
+    }
+    if (imageUrlToSend && imageUrlToSend.trim()) {
+      jsonData.imageUrl = imageUrlToSend.trim();
+    }
+    if (data.category && data.category.trim()) {
+      jsonData.category = data.category.trim();
+    }
+    // Always send isAvailable (default to true if not specified)
+    jsonData.isAvailable = data.isAvailable !== undefined ? Boolean(data.isAvailable) : true;
+    
+    // Only send stock if it's a valid number
+    if (data.stock !== undefined && data.stock !== null && !isNaN(Number(data.stock))) {
+      jsonData.stock = Number(data.stock);
+    }
+    
+    console.log("📤 Sending shop item as JSON:", {
+      name: jsonData.name,
+      price: jsonData.price,
+      hasImageUrl: !!jsonData.imageUrl,
+      imageUrlLength: jsonData.imageUrl?.length || 0,
+      imageUrlPreview: jsonData.imageUrl?.substring(0, 50) + "...",
+      allFields: Object.keys(jsonData),
+      fullData: jsonData,
+    });
+    
+    try {
+      const response = await apiService.privateApiClient.post<ShopItemDto>(`/admin/shop/items`, jsonData);
+      return wrapResponse(response);
+    } catch (error: any) {
+      const errorDetails = {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        requestData: jsonData,
+        requestDataStringified: JSON.stringify(jsonData, null, 2),
+      };
+      console.error("❌ Error creating shop item:", errorDetails);
+      console.error("❌ Full error object:", error);
+      
+      // Show user-friendly error message
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.title ||
+                          error.response?.data ||
+                          error.message ||
+                          "Không thể tạo shop item";
+      throw new Error(typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage));
+    }
   },
 
   /** Get shop item by ID */
@@ -470,19 +564,35 @@ export const adminApiService = {
     try {
       checkAdminAccess();
       
-      // Clean up data: remove empty strings, handle base64 images
-      const cleanedData: UpdateShopItemDto = {
-        ...(data.name ? { name: data.name.trim() } : {}),
-        ...(data.description && data.description.trim() ? { description: data.description.trim() } : {}),
-        ...(data.price !== undefined && data.price !== null ? { price: data.price } : {}),
-        ...(data.category && data.category.trim() ? { category: data.category.trim() } : {}),
-        ...(data.isAvailable !== undefined ? { isAvailable: data.isAvailable } : {}),
-        ...(data.stock !== undefined && data.stock !== null ? { stock: data.stock } : {}),
-        // Only include imageUrl if it's not a base64 data URL (too large) or if it's a URL string
-        ...(data.imageUrl && !data.imageUrl.startsWith('data:image/') ? { imageUrl: data.imageUrl } : {}),
-      };
+      // Server may not accept base64, so only send imageUrl if it's a URL string
+      let imageUrlToSend: string | undefined = undefined;
       
-      console.log("🔍 Updating shop item with data:", cleanedData);
+      if (data.imageUrl && !data.imageUrl.startsWith('data:image/')) {
+        // Only send if it's a URL string, not base64
+        imageUrlToSend = data.imageUrl;
+      } else if (data.imageFile) {
+        // If there's a file but no URL, we can't send base64
+        console.warn("⚠️ Image file provided but server doesn't accept base64. Skipping imageUrl in update.");
+      }
+      
+      // Always use JSON - use camelCase (standard JSON convention)
+      const cleanedData: any = {};
+      if (data.name) cleanedData.name = data.name.trim();
+      if (data.description && data.description.trim()) cleanedData.description = data.description.trim();
+      if (data.price !== undefined && data.price !== null) cleanedData.price = data.price;
+      if (data.category && data.category.trim()) cleanedData.category = data.category.trim();
+      if (data.isAvailable !== undefined) cleanedData.isAvailable = data.isAvailable;
+      if (data.stock !== undefined && data.stock !== null) cleanedData.stock = data.stock;
+      // Include imageUrl (base64 or URL string)
+      if (imageUrlToSend) {
+        cleanedData.imageUrl = imageUrlToSend;
+      }
+      
+      console.log("🔍 Updating shop item with JSON data:", {
+        ...cleanedData,
+        imageUrlLength: cleanedData.imageUrl?.length || 0,
+        allFields: Object.keys(cleanedData),
+      });
       
       const response = await apiService.privateApiClient.put<ShopItemDto>(`/admin/shop/items/${id}`, cleanedData);
       const result = wrapResponse(response);

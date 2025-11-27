@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTokenInfoStorage } from "@/store/authStore";
 import { isTeacher } from "@/utils/auth";
 import { toast } from "@/lib/toast";
+import TeacherNavbar from "@/components/teacher/TeacherNavbar";
 
 export default function TeacherLayout({
   children,
@@ -58,6 +59,13 @@ export default function TeacherLayout({
     );
   }
 
-  return <>{children}</>;
+  return (
+    <div className="relative flex h-full flex-col">
+      <TeacherNavbar />
+      <main className="flex-1 px-6 py-8 overflow-y-auto">
+        {children}
+      </main>
+    </div>
+  );
 }
 

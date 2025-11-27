@@ -51,6 +51,79 @@ class AchievementService {
   }
 
   /**
+   * Award achievement with retry logic and multiple attempts
+   */
+  private async awardAchievementWithRetry(
+    userId: string, 
+    achievementId: string, 
+    achievementName: string,
+    maxRetries: number = 3,
+    delayMs: number = 2000
+  ): Promise<boolean> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🎯 [Attempt ${attempt}/${maxRetries}] Attempting to claim ${achievementName} (ID: ${achievementId}) for user ${userId}`);
+        
+        // Wait before retry (except first attempt)
+        if (attempt > 1) {
+          console.log(`⏳ Waiting ${delayMs}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+        
+        // Use claim endpoint directly
+        // Note: Backend requires user achievement to exist before claiming
+        // Backend should automatically create user achievement when user meets criteria (e.g., signup, first streak)
+        // If user achievement doesn't exist, backend will return 400 "User achievement not found"
+        const awarded = await privateApiService.claimAchievement(userId, achievementId);
+        console.log(`🎉 ${achievementName} claimed successfully:`, awarded);
+        showSuccess(`🎉 Chúc mừng! Bạn đã nhận được achievement '${achievementName}'!`);
+        return true;
+      } catch (error: any) {
+        console.error(`❌ [Attempt ${attempt}/${maxRetries}] Error claiming ${achievementName}:`, error);
+        
+        // If achievement already exists/claimed, that's okay
+        if (error?.response?.status === 400) {
+          const errorData = error?.response?.data;
+          const errorMessage = typeof errorData === 'string' ? errorData : errorData?.message || '';
+          if (errorMessage.toLowerCase().includes('already') || 
+              errorMessage.toLowerCase().includes('claimed')) {
+            console.log(`✅ ${achievementName} already claimed`);
+            return true;
+          }
+          
+          // If error is "User achievement not found", backend requires user achievement to exist first
+          // This means backend should automatically create user achievement when user meets criteria
+          // (e.g., when user signs up for "First Step", or when user gets first streak for "First Streak")
+          if (errorMessage.toLowerCase().includes('user achievement not found') ||
+              errorMessage.toLowerCase().includes('not found')) {
+            console.warn(
+              `⚠️ [${achievementName}] Backend requires user achievement to exist before claiming. ` +
+              `This achievement should be automatically created by the backend when you meet the criteria. ` +
+              `If you don't see it, backend may need to be configured to auto-create user achievements ` +
+              `when conditions are met (e.g., signup for "First Step", first streak for "First Streak").`
+            );
+            // Don't retry - backend needs to create user achievement first
+            return false;
+          }
+        }
+        
+        // If it's the last attempt, log final error
+        if (attempt === maxRetries) {
+          console.error(`❌ Failed to claim ${achievementName} after ${maxRetries} attempts`);
+          console.error("❌ Final error details:", {
+            status: error?.response?.status,
+            statusText: error?.response?.statusText,
+            data: error?.response?.data,
+            message: error?.message
+          });
+          return false;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
    * Check and award "First-Step" achievement when user signs up
    * Should be called after user registration
    */
@@ -58,16 +131,36 @@ class AchievementService {
     try {
       console.log("🔍 [First-Step] Checking achievement for user:", userId);
       
-      // Check if user already has this achievement
-      console.log("🔍 [First-Step] Fetching user achievements to check...");
-      const userAchievements = await privateApiService.getUserAchievements();
-      console.log(`🔍 [First-Step] User has ${userAchievements.length} achievements`);
+      // Wait a bit to ensure backend has processed the registration
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Check if user already has this achievement (with retry)
+      let userAchievements: UserAchievementDto[] = [];
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          console.log(`🔍 [First-Step] Fetching user achievements (attempt ${attempt})...`);
+          userAchievements = await privateApiService.getUserAchievements(userId);
+          console.log(`🔍 [First-Step] User has ${userAchievements.length} achievements`);
+          break;
+        } catch (error: any) {
+          if (attempt === 3) {
+            console.warn("⚠️ [First-Step] Could not fetch user achievements after 3 attempts");
+          } else {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+      }
       
       const hasFirstStep = userAchievements.some(
-        ua => ua.achievement?.code?.toLowerCase() === "first-step" || 
-              ua.achievement?.code?.toLowerCase() === "first step" ||
-              ua.achievement?.code?.toLowerCase() === "firststep" ||
-              ua.achievement?.name?.toLowerCase().includes("first step")
+        ua => {
+          const code = ua.achievement?.code?.toLowerCase() || '';
+          const name = ua.achievement?.name?.toLowerCase() || '';
+          return code === "first-step" || 
+                 code === "first step" ||
+                 code === "firststep" ||
+                 name.includes("first step") ||
+                 name.includes("first-step");
+        }
       );
       
       if (hasFirstStep) {
@@ -78,7 +171,6 @@ class AchievementService {
       console.log("🔍 [First-Step] User does not have First-Step achievement, proceeding to award...");
       
       // Find achievement by code (try different possible codes)
-      // Note: Backend has "first step" (with space), not "first-step"
       const codes = ["first step", "first-step", "First-Step", "firststep", "FirstStep", "first-steps"];
       let achievementId: string | null = null;
       
@@ -95,46 +187,20 @@ class AchievementService {
         return;
       }
       
-      // Note: Backend may automatically award achievements based on user actions
-      // We'll try to claim, but if it fails with "User achievement not found",
-      // it means the backend will handle it automatically
-      try {
-        console.log(`🎯 Attempting to claim First-Step achievement (ID: ${achievementId}) for user ${userId}`);
-        const awarded = await privateApiService.claimAchievement(userId, achievementId);
-        console.log("🎉 First-Step achievement awarded successfully:", awarded);
-        showSuccess("🎉 Chúc mừng! Bạn đã nhận được achievement 'First Step'!");
-      } catch (error: any) {
-        const errorMessage = error?.message || '';
-        
-        // If error says "User achievement not found", backend likely handles achievements automatically
-        if (errorMessage.includes('User achievement not found') || 
-            errorMessage.includes('automatically awarded')) {
-          console.log(
-            "ℹ️ [First-Step] Backend requires user achievement to exist first. " +
-            "This suggests achievements are automatically awarded by the backend. " +
-            "The achievement will appear when backend processes it."
-          );
-          // Don't show error - backend will handle it automatically
-          return;
-        }
-        
-        console.error("❌ Error claiming First-Step achievement:", error);
-        console.error("❌ Error details:", {
-          status: error?.response?.status,
-          statusText: error?.response?.statusText,
-          data: error?.response?.data,
-          message: error?.message
-        });
-        
-        // If achievement doesn't exist or already awarded, ignore
-        if (error?.response?.status === 404 || error?.response?.status === 400) {
-          console.warn("⚠️ Could not claim First-Step achievement (404/400):", error?.response?.data);
-        } else if (error?.response?.status === 500) {
-          console.error("❌ Server error (500) when claiming First-Step achievement. Backend may not support this operation.");
-        } else {
-          // Log but don't throw - this is a background process
-          console.error("❌ Unexpected error claiming First-Step achievement");
-        }
+      // Award with retry logic (3 attempts, 2s delay between attempts)
+      const success = await this.awardAchievementWithRetry(
+        userId, 
+        achievementId, 
+        "First Step",
+        3, // max retries
+        2000 // 2s delay
+      );
+      
+      if (!success) {
+        console.warn(
+          "⚠️ [First-Step] Could not award achievement after multiple attempts. " +
+          "Backend may need to be configured to automatically award this achievement on signup."
+        );
       }
     } catch (error) {
       console.error("❌ Error checking First-Step achievement:", error);
@@ -187,29 +253,13 @@ class AchievementService {
         return;
       }
       
-      // Note: Backend may automatically award achievements based on user actions
-      // We'll try to claim, but if it fails with "User achievement not found",
-      // it means the backend will handle it automatically
+      // Claim the achievement - create/award user achievement first if needed
       try {
         console.log(`🎯 Attempting to claim First Streak achievement (ID: ${achievementId}) for user ${userId}`);
         const awarded = await privateApiService.claimAchievement(userId, achievementId);
         console.log("🎉 First Streak achievement awarded successfully:", awarded);
         showSuccess("🔥 Chúc mừng! Bạn đã nhận được achievement 'First Streak'!");
       } catch (error: any) {
-        const errorMessage = error?.message || '';
-        
-        // If error says "User achievement not found", backend likely handles achievements automatically
-        if (errorMessage.includes('User achievement not found') || 
-            errorMessage.includes('automatically awarded')) {
-          console.log(
-            "ℹ️ [First Streak] Backend requires user achievement to exist first. " +
-            "This suggests achievements are automatically awarded by the backend. " +
-            "The achievement will appear when backend processes it."
-          );
-          // Don't show error - backend will handle it automatically
-          return;
-        }
-        
         console.error("❌ Error claiming First Streak achievement:", error);
         console.error("❌ Error details:", {
           status: error?.response?.status,
@@ -218,13 +268,49 @@ class AchievementService {
           message: error?.message
         });
         
-        // If achievement doesn't exist or already awarded, ignore
-        if (error?.response?.status === 404 || error?.response?.status === 400) {
-          console.warn("⚠️ Could not claim First Streak achievement (404/400):", error?.response?.data);
+        // If achievement already exists/claimed, that's okay
+        if (error?.response?.status === 400) {
+          const errorData = error?.response?.data;
+          const errorMessage = typeof errorData === 'string' ? errorData : errorData?.message || '';
+          if (errorMessage.toLowerCase().includes('already') || 
+              errorMessage.toLowerCase().includes('claimed')) {
+            console.log("ℹ️ [First Streak] Achievement already claimed");
+            return;
+          }
+          
+          // If error is "User achievement not found", backend may require automatic awarding
+          if (errorMessage.toLowerCase().includes('user achievement not found') ||
+              errorMessage.toLowerCase().includes('not found') ||
+              errorMessage.toLowerCase().includes('must be created')) {
+            console.warn(
+              "⚠️ [First Streak] Backend requires user achievement to exist before claiming. " +
+              "This achievement should be automatically awarded by the backend when you get your first streak. " +
+              "If you don't see it, please contact support or check if backend is configured to auto-award on first streak."
+            );
+            // Don't show error to user - backend should handle it automatically
+            return;
+          }
+        }
+        
+        // If error message indicates backend requires automatic awarding
+        if (error?.message?.includes('automatically awarded') || 
+            error?.message?.includes('Backend may require')) {
+          console.warn(
+            "⚠️ [First Streak] Backend requires achievements to be automatically awarded. " +
+            "The achievement should appear automatically when you get your first streak. " +
+            "If it doesn't, backend may need to be configured to auto-award on first streak."
+          );
+          return;
+        }
+        
+        // Log error but don't throw - this is a background process
+        if (error?.response?.status === 404) {
+          console.warn("⚠️ Could not claim First Streak achievement (404): Achievement or user not found");
+        } else if (error?.response?.status === 403) {
+          console.warn("⚠️ Could not claim First Streak achievement (403): No permission to award achievement");
         } else if (error?.response?.status === 500) {
-          console.error("❌ Server error (500) when claiming First Streak achievement. Backend may not support this operation.");
+          console.error("❌ Server error (500) when claiming First Streak achievement");
         } else {
-          // Log but don't throw - this is a background process
           console.error("❌ Unexpected error claiming First Streak achievement");
         }
       }

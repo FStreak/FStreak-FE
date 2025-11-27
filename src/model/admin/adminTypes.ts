@@ -96,6 +96,7 @@ export interface CreateShopItemDto {
   description?: string;
   price: number;
   imageUrl?: string;
+  imageFile?: File;
   category?: string;
   isAvailable?: boolean;
   stock?: number;
@@ -106,6 +107,7 @@ export interface UpdateShopItemDto {
   description?: string;
   price?: number;
   imageUrl?: string;
+  imageFile?: File;
   category?: string;
   isAvailable?: boolean;
   stock?: number;

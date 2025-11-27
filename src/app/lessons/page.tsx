@@ -12,24 +12,85 @@ import { toast } from "@/lib/toast";
 export default function LessonsPage() {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchLessons = async (showLoading = true) => {
+    try {
+      if (showLoading) {
+        setIsLoading(true);
+      } else {
+        setIsRefreshing(true);
+      }
+      
+      const allLessons = await privateApiService.getAllLessons();
+      console.log("📚 All lessons received:", allLessons.length, allLessons);
+      
+      // Normalize lessons (handle both camelCase and PascalCase from API)
+      const normalizedLessons = allLessons.map((lesson: any) => ({
+        ...lesson,
+        isPublished: lesson.isPublished ?? lesson.IsPublished ?? false,
+        title: lesson.title ?? lesson.Title ?? "",
+        description: lesson.description ?? lesson.Description,
+        createdAt: lesson.createdAt ?? lesson.CreatedAt,
+      }));
+      
+      console.log("📚 Normalized lessons:", normalizedLessons);
+      
+      // Chỉ lấy các lesson đã published và sắp xếp theo thời gian tạo mới nhất
+      const publishedLessons = normalizedLessons
+        .filter((lesson) => {
+          // Handle boolean, string "true"/"false", or undefined
+          const isPublished = 
+            lesson.isPublished === true || 
+            lesson.isPublished === "true" || 
+            String(lesson.isPublished).toLowerCase() === "true";
+          
+          if (!isPublished) {
+            console.log(`⏭️ Skipping unpublished lesson: ${lesson.title} (isPublished: ${lesson.isPublished})`);
+          } else {
+            console.log(`✅ Including published lesson: ${lesson.title}`);
+          }
+          return isPublished;
+        })
+        .sort((a, b) => {
+          // Sắp xếp theo createdAt (mới nhất trước)
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
+      
+      console.log("✅ Published lessons after filter:", publishedLessons.length);
+      console.log("✅ Published lessons details:", publishedLessons.map(l => ({ id: l.id, title: l.title, isPublished: l.isPublished })));
+      setLessons(publishedLessons);
+      
+      if (!showLoading && publishedLessons.length > 0) {
+        toast.success(`Đã tải ${publishedLessons.length} bài học`);
+      }
+    } catch (error: any) {
+      console.error("Failed to fetch lessons:", error);
+      
+      // Check if it's a 405 error (Method Not Allowed)
+      if (error?.response?.status === 405) {
+        console.warn("⚠️ GET /Lessons endpoint not available. Backend may need to add this endpoint.");
+        if (showLoading) {
+          toast.error("API endpoint không khả dụng. Vui lòng liên hệ admin.");
+        }
+      } else if (showLoading) {
+        toast.error("Không thể tải danh sách bài học");
+      }
+      setLessons([]);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchLessons = async () => {
-      try {
-        setIsLoading(true);
-        const allLessons = await privateApiService.getAllLessons();
-        // Chỉ lấy các lesson đã published
-        const publishedLessons = allLessons.filter((lesson) => lesson.isPublished);
-        setLessons(publishedLessons);
-      } catch (error) {
-        console.error("Failed to fetch lessons:", error);
-        toast.error("Không thể tải danh sách bài học");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchLessons();
+    fetchLessons(true);
+    
+    // Refresh lessons mỗi 30 giây để cập nhật lesson mới
+    const interval = setInterval(() => fetchLessons(false), 30000);
+    return () => clearInterval(interval);
   }, []);
 
   // Lấy lesson đầu tiên làm featured, phần còn lại làm list
@@ -54,7 +115,7 @@ export default function LessonsPage() {
     <div className="min-h-screen bg-[#FAFAF8] dark:bg-[#0B0B0B]">
       <Navbar />
       <main className="mx-auto max-w-6xl px-5 md:px-8 py-10 md:py-14 space-y-10">
-        <LessonHeader />
+        <LessonHeader onRefresh={() => fetchLessons(false)} isRefreshing={isRefreshing} />
         {featured && <FeaturedLessonCard lesson={featured} />}
 
         {rest.length > 0 && (

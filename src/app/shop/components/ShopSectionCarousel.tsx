@@ -9,7 +9,7 @@ interface ShopSectionProps {
   title: string;
   icon: React.ReactNode;
   items: {
-    id: number;
+    id: string | number;
     name: string;
     img: string;
     price?: number;

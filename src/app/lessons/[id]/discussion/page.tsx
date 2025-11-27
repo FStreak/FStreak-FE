@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
+import { useParams } from "next/navigation";
 import Navbar from "@/components/navbar/Navbar";
 import { Send, User } from "lucide-react";
+import { useLesson } from "@/hooks/useLesson";
 
-function MockPost({ author, text }: { author: string; text: string }) {
+function Post({ author, text }: { author: string; text: string }) {
   return (
     <div className="p-5 rounded-2xl border border-[#FFEBD2] bg-white hover:bg-[#FFF8F0]/80 transition-all shadow-sm">
       <div className="flex items-start gap-3">
@@ -23,6 +25,9 @@ function MockPost({ author, text }: { author: string; text: string }) {
 }
 
 export default function DiscussionPage() {
+  const params = useParams();
+  const lessonId = params.id as string;
+  const { lesson, isLoading } = useLesson(lessonId);
   const [posts, setPosts] = useState([
     { author: "Alice", text: "When is the assignment due?" },
     { author: "Bob", text: "I found the readings helpful." },
@@ -33,6 +38,17 @@ export default function DiscussionPage() {
     if (!text.trim()) return;
     setPosts((p) => [{ author: "You", text: text.trim() }, ...p]);
     setText("");
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#FFF9F3] via-[#FFFDFB] to-[#FFF7EC]">
+        <Navbar />
+        <main className="max-w-4xl mx-auto px-6 md:px-10 py-14">
+          <div className="text-center text-gray-600">Loading discussion...</div>
+        </main>
+      </div>
+    );
   }
 
   return (
@@ -47,7 +63,7 @@ export default function DiscussionPage() {
               Discussion Forums
             </h1>
             <p className="text-sm text-gray-600 mt-2">
-              Share thoughts, ask questions, and discuss with your classmates.
+              {lesson?.title ? `Discussion for: ${lesson.title}` : "Share thoughts, ask questions, and discuss with your classmates."}
             </p>
           </div>
           <div className="p-2 bg-gradient-to-br from-orange-100 to-yellow-50 rounded-xl shadow-sm">
@@ -77,9 +93,15 @@ export default function DiscussionPage() {
 
         {/* Posts List */}
         <div className="space-y-4">
-          {posts.map((p, i) => (
-            <MockPost key={i} author={p.author} text={p.text} />
-          ))}
+          {posts.length === 0 ? (
+            <div className="text-center py-10 text-gray-500">
+              No discussions yet. Be the first to post!
+            </div>
+          ) : (
+            posts.map((p, i) => (
+              <Post key={i} author={p.author} text={p.text} />
+            ))
+          )}
         </div>
       </main>
     </div>

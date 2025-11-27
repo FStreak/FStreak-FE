@@ -45,7 +45,13 @@ export default function AdminShopPage() {
       setShowCreateDialog(false);
       loadShopItems();
     } catch (error: any) {
-      showError(error?.response?.data?.message || "Không thể tạo shop item");
+      const errorMessage = error?.message || 
+                          error?.response?.data?.message || 
+                          error?.response?.data?.title ||
+                          error?.response?.data ||
+                          "Không thể tạo shop item";
+      console.error("Error in handleCreate:", error);
+      showError(typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage));
     } finally {
       setLoading(false);
     }
@@ -109,8 +115,16 @@ export default function AdminShopPage() {
           </p>
         </div>
         <button
-          onClick={() => setShowCreateDialog(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-yellow-400 text-white rounded-lg hover:opacity-90 transition-opacity shadow"
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log("Button clicked, setting showCreateDialog to true");
+            setShowCreateDialog(true);
+          }}
+          disabled={loading}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-yellow-400 text-white rounded-lg hover:opacity-90 transition-opacity shadow disabled:opacity-50 disabled:cursor-not-allowed relative z-10"
+          style={{ pointerEvents: loading ? 'none' : 'auto' }}
         >
           <Plus className="w-5 h-5" />
           Tạo Shop Item

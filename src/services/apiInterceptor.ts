@@ -53,6 +53,11 @@ export const setupInterceptors = (privateClient: AxiosInstance, publicClient: Ax
       } else {
         console.warn('⚠️ No token found for private API request:', config.url);
       }
+      
+      // Note: For FormData, we let the explicit Content-Type header in the request config take precedence
+      // If Content-Type is set in the request config, axios will use it and add boundary automatically
+      // If not set, axios will automatically set multipart/form-data with boundary
+      
       return config;
     },
     (error) => Promise.reject(error)

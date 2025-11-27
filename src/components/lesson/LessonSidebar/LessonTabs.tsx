@@ -6,13 +6,15 @@ import {
   FileText,
 } from "lucide-react";
 import LessonTabItem from "./LessonTabItem";
+import type { Lesson } from "@/model/lesson/lessonTypes";
 
 interface LessonTabsProps {
   tab: "overview" | "lessons" | "assignments";
   setTab: (t: "overview" | "lessons" | "assignments") => void;
+  lesson: Lesson | null;
 }
 
-export default function LessonTabs({ tab, setTab }: LessonTabsProps) {
+export default function LessonTabs({ tab, setTab, lesson }: LessonTabsProps) {
   return (
     <>
       {/* Tabs */}
@@ -45,29 +47,39 @@ export default function LessonTabs({ tab, setTab }: LessonTabsProps) {
               Lesson Overview
             </h4>
             <p className="text-sm text-gray-600 leading-relaxed">
-              This lesson introduces key programming concepts and gives you a
-              foundation to build on for later lessons. You’ll explore Python
-              syntax, data types, and simple problem-solving techniques.
+              {lesson?.description || "No description available for this lesson."}
             </p>
+            {lesson?.durationMinutes && (
+              <p className="text-xs text-gray-500 mt-2">
+                Duration: {lesson.durationMinutes} minutes
+              </p>
+            )}
           </>
         )}
         {tab === "lessons" && (
           <>
             <h4 className="text-sm font-semibold text-gray-800 mb-3">
-              Lesson Topics
+              Lesson Information
             </h4>
             <ul className="space-y-2 text-sm text-gray-700">
-              <li className="flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-orange-500" /> Why We Program
-              </li>
-              <li className="flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-orange-500" /> Variables and
-                Expressions
-              </li>
-              <li className="flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-orange-500" /> Conditional
-                Execution
-              </li>
+              {lesson?.category && (
+                <li className="flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-orange-500" />
+                  Category: {lesson.category}
+                </li>
+              )}
+              {lesson?.startAt && (
+                <li className="flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-orange-500" />
+                  Starts: {new Date(lesson.startAt).toLocaleDateString()}
+                </li>
+              )}
+              {lesson?.isPublished !== undefined && (
+                <li className="flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-orange-500" />
+                  Status: {lesson.isPublished ? "Published" : "Draft"}
+                </li>
+              )}
             </ul>
           </>
         )}
@@ -76,14 +88,15 @@ export default function LessonTabs({ tab, setTab }: LessonTabsProps) {
             <h4 className="text-sm font-semibold text-gray-800 mb-3">
               Lesson Assignments
             </h4>
+            <p className="text-sm text-gray-600 mb-2">
+              {lesson?.documentUrl || lesson?.videoUrl
+                ? "Click 'Assignments' in the menu to generate assignments with AI."
+                : "Upload lesson materials to generate assignments."}
+            </p>
             <ul className="space-y-3 text-sm text-gray-700">
               <li className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-orange-500" /> Quiz: Intro to
-                Programming
-              </li>
-              <li className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-orange-500" /> Practice: Write
-                Your First Script
+                <FileText className="w-4 h-4 text-orange-500" />
+                AI-generated assignments available
               </li>
             </ul>
           </>

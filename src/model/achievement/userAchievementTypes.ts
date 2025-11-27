@@ -10,9 +10,12 @@ export interface UserAchievementDto {
     iconUrl?: string;
     points?: number;
   };
-  earnedAt: string;
+  earnedAt?: string;
+  progress?: number;
   isActive?: boolean;
   isClaimed?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface AwardAchievementRequest {

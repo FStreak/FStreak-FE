@@ -112,11 +112,23 @@ export const aiService = {
         request
       );
       return wrapResponse(response);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to generate content:", error);
+      
+      // Check if endpoint doesn't exist (404 or 405)
+      if (error?.response?.status === 404 || error?.response?.status === 405) {
+        return {
+          success: false,
+          error: "AI content generation is not available yet. The backend endpoint '/api/ai/generate-content' needs to be implemented.",
+        };
+      }
+      
+      // Check for other specific errors
+      const errorMessage = error?.response?.data?.message || error?.message || "Unknown error";
+      
       return {
         success: false,
-        error: "Failed to generate content. Please try again.",
+        error: errorMessage || "Failed to generate content. Please try again.",
       };
     }
   },
@@ -128,7 +140,11 @@ export const aiService = {
         `/lessons/${lessonId}/content`
       );
       return wrapResponse(response);
-    } catch (error) {
+    } catch (error: any) {
+      // 404 is expected if content doesn't exist yet, don't log as error
+      if (error?.response?.status === 404) {
+        return null;
+      }
       console.warn("No learning content found for lesson:", lessonId);
       return null;
     }

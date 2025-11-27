@@ -1,9 +1,14 @@
 "use client";
 
+import { Heart, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-import { Heart } from "lucide-react";
+interface LessonHeaderProps {
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
+}
 
-export default function LessonHeader() {
+export default function LessonHeader({ onRefresh, isRefreshing = false }: LessonHeaderProps) {
   return (
     <section className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
       <div>
@@ -17,7 +22,18 @@ export default function LessonHeader() {
         </p>
       </div>
 
-      
+      {onRefresh && (
+        <Button
+          onClick={onRefresh}
+          disabled={isRefreshing}
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2"
+        >
+          <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          {isRefreshing ? 'Đang tải...' : 'Làm mới'}
+        </Button>
+      )}
     </section>
   );
 }
