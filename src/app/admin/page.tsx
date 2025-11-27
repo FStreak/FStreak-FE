@@ -1,6 +1,6 @@
 "use client";
 
-import { Users, Trophy, ShoppingBag } from "lucide-react";
+import { Users, Trophy, ShoppingBag, CreditCard } from "lucide-react";
 import Link from "next/link";
 
 export default function AdminDashboardPage() {
@@ -11,11 +11,11 @@ export default function AdminDashboardPage() {
           Admin Dashboard
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
-          Quản lý người dùng, thành tích và cửa hàng
+          Quản lý người dùng, thanh toán, thành tích và cửa hàng
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Users Card */}
         <Link
           href="/admin/users"
@@ -31,6 +31,26 @@ export default function AdminDashboardPage() {
               </h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Xem và quản lý người dùng
+              </p>
+            </div>
+          </div>
+        </Link>
+
+        {/* Payments Card */}
+        <Link
+          href="/admin/payments"
+          className="group p-6 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 hover:border-orange-500 dark:hover:border-orange-500 transition-all shadow-sm hover:shadow-md"
+        >
+          <div className="flex items-center gap-4 mb-4">
+            <div className="p-3 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 group-hover:scale-110 transition-transform">
+              <CreditCard className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                Quản lý Payments
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Theo dõi giao dịch thanh toán
               </p>
             </div>
           </div>
