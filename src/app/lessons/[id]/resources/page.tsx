@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useParams } from "next/navigation";
 import { BookOpen, FileText, ExternalLink } from "lucide-react";
 import { useLesson } from "@/hooks/useLesson";
@@ -10,7 +11,15 @@ export default function ResourcesPage() {
   const lessonId = params.id as string;
   const { lesson, isLoading } = useLesson(lessonId);
 
-  const resources = [
+  type ResourceItem = {
+    id: number;
+    title: string;
+    link: string;
+    icon: React.ReactElement;
+    desc: string;
+  };
+
+  const resources: ResourceItem[] = [
     lesson?.videoUrl && {
       id: 2,
       title: "Lesson Video",
@@ -18,7 +27,7 @@ export default function ResourcesPage() {
       icon: <BookOpen className="w-5 h-5 text-orange-500" />,
       desc: "Watch the lesson video.",
     },
-  ].filter(Boolean);
+  ].filter((item): item is ResourceItem => Boolean(item));
 
   if (isLoading) {
     return (
