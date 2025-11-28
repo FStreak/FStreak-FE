@@ -23,23 +23,26 @@ export default function PaymentContent() {
 
   // ✅ Lấy dữ liệu từ localStorage (plan hoặc custom shop items)
   useEffect(() => {
-    // Kiểm tra custom shop items trước
+    // Kiểm tra selectedPlan trước (ưu tiên plan từ plans page)
+    const savedPlan = localStorage.getItem("selectedPlan");
+    if (savedPlan) {
+      try {
+        setPlan(JSON.parse(savedPlan));
+        // Nếu có plan, xóa customShopItems để tránh conflict
+        localStorage.removeItem("customShopItems");
+        return;
+      } catch (err) {
+        console.error("❌ Lỗi parse selectedPlan:", err);
+      }
+    }
+    
+    // Nếu không có plan, kiểm tra custom shop items
     const customShopItems = localStorage.getItem("customShopItems");
     if (customShopItems) {
       try {
         setCustomItems(JSON.parse(customShopItems));
       } catch (err) {
         console.error("❌ Lỗi parse customShopItems:", err);
-      }
-    } else {
-      // Nếu không có custom items, kiểm tra plan
-      const saved = localStorage.getItem("selectedPlan");
-      if (saved) {
-        try {
-          setPlan(JSON.parse(saved));
-        } catch (err) {
-          console.error("❌ Lỗi parse selectedPlan:", err);
-        }
       }
     }
   }, []);

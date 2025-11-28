@@ -12,6 +12,8 @@ export default function PlansPage() {
 
   const handleBuyNow = (plan: Plan) => {
     if (!token) return router.push("/login");
+    // Xóa customShopItems nếu có để tránh conflict
+    localStorage.removeItem("customShopItems");
     localStorage.setItem("selectedPlan", JSON.stringify(plan));
     router.push("/payment");
   };

@@ -13,6 +13,8 @@ export default function ApplyButton({ selectedMascot, selectedFrame }: ApplyButt
   const router = useRouter();
 
   const handleApply = () => {
+    // Xóa selectedPlan nếu có để tránh conflict
+    localStorage.removeItem("selectedPlan");
     // Lưu selected items vào localStorage để trang payment có thể sử dụng
     const customItems = {
       mascot: selectedMascot,
