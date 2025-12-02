@@ -6,6 +6,9 @@ import type { AdminUser, AdminUserListResponse } from "@/model/admin/adminTypes"
 import { showSuccess, showError } from "@/lib/toast";
 import { Users, Search, Lock, Unlock, UserPlus, Shield, X } from "lucide-react";
 import { useTokenInfoStorage } from "@/store/authStore";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import UserManagementTable from "./components/UserManagementTable";
 import UserDetailDialog from "./components/UserDetailDialog";
 import AddRoleDialog from "./components/AddRoleDialog";
@@ -14,9 +17,8 @@ import LockUserDialog from "./components/LockUserDialog";
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [pageSize] = useState(20);
-  const [total, setTotal] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [showUserDetail, setShowUserDetail] = useState(false);
@@ -27,11 +29,10 @@ export default function AdminUsersPage() {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const response = await adminApiService.getUsers(page, pageSize);
+      const response = await adminApiService.getUsers(1, 1000); // Get all users for client-side pagination
       
       // Response đã được normalize trong AdminApiService
       setUsers(response.items || []);
-      setTotal(response.total || 0);
     } catch (error: any) {
       console.error("Error loading users:", error);
       
@@ -106,7 +107,7 @@ export default function AdminUsersPage() {
   useEffect(() => {
     loadUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize]);
+  }, []);
 
   const handleViewUser = async (userId: string) => {
     try {
@@ -153,6 +154,26 @@ export default function AdminUsersPage() {
     );
   });
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentUsers = filteredUsers.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1);
+  };
+
+  useEffect(() => {
+    setCurrentPage(1); // Reset to first page when search changes
+  }, [searchTerm]);
+
   return (
     <div className="max-w-7xl mx-auto">
       <div className="mb-8">
@@ -181,7 +202,7 @@ export default function AdminUsersPage() {
 
       {/* Users Table */}
       <UserManagementTable
-        users={filteredUsers}
+        users={currentUsers}
         loading={loading}
         onViewUser={handleViewUser}
         onAddRole={handleAddRole}
@@ -190,28 +211,101 @@ export default function AdminUsersPage() {
       />
 
       {/* Pagination */}
-      {!loading && total > pageSize && (
-        <div className="mt-6 flex items-center justify-between">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            Hiển thị {(page - 1) * pageSize + 1} - {Math.min(page * pageSize, total)} trong tổng số {total} users
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800"
-            >
-              Trước
-            </button>
-            <button
-              onClick={() => setPage((p) => p + 1)}
-              disabled={page * pageSize >= total}
-              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800"
-            >
-              Sau
-            </button>
-          </div>
-        </div>
+      {filteredUsers.length > 0 && (
+        <Card className="mt-6">
+          <CardContent className="pt-6">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              {/* Page info */}
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Hiển thị {startIndex + 1} - {Math.min(endIndex, filteredUsers.length)} trong tổng số {filteredUsers.length} users
+              </div>
+
+              {/* Pagination buttons */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(1)}
+                  disabled={currentPage === 1}
+                >
+                  Đầu
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  Trước
+                </Button>
+
+                {/* Page numbers */}
+                <div className="flex gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handlePageChange(pageNum)}
+                        className="min-w-10"
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  Sau
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(totalPages)}
+                  disabled={currentPage === totalPages}
+                >
+                  Cuối
+                </Button>
+              </div>
+
+              {/* Go to page */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Trang:</span>
+                <Input
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  value={currentPage}
+                  onChange={(e) => {
+                    const page = parseInt(e.target.value);
+                    if (page >= 1 && page <= totalPages) {
+                      handlePageChange(page);
+                    }
+                  }}
+                  className="w-20 h-8 text-center"
+                />
+                <span className="text-sm text-gray-600 dark:text-gray-400">/ {totalPages}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Dialogs */}
