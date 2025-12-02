@@ -20,13 +20,12 @@ export const useUserPlan = () => {
       try {
         setLoading(true);
         
-        // 1. Kiểm tra localStorage trước
+        // 1. Kiểm tra localStorage trước để hiển thị nhanh
         const savedPlan = localStorage.getItem("userPlan");
         if (savedPlan) {
           try {
             const plan = JSON.parse(savedPlan);
             setUserPlan(plan);
-            setLoading(false);
             // Vẫn check API để đảm bảo sync
           } catch (err) {
             console.error("❌ Lỗi parse userPlan từ localStorage:", err);
@@ -35,6 +34,8 @@ export const useUserPlan = () => {
 
         // 2. Lấy payment history từ API
         const paymentHistory = await paymentService.getMyPaymentHistory();
+        
+        console.log("📊 Payment history from API:", paymentHistory);
         
         // 3. Tìm payment thành công cho Premium plan
         const premiumPlans = ["2", "5"]; // Premium và Full Combo
@@ -62,9 +63,9 @@ export const useUserPlan = () => {
           localStorage.setItem("userPlan", JSON.stringify(planData));
           setUserPlan(planData);
           console.log("✅ Đã cập nhật plan từ payment history:", planData);
-        } else if (!savedPlan) {
-          // Nếu không có payment thành công và không có plan trong localStorage
-          // Set default là Free
+        } else {
+          // ✅ FIX: LUÔN set Free nếu không tìm thấy payment thành công
+          // Không check !savedPlan nữa vì phải update theo API
           const defaultPlan: UserPlan = {
             planId: "1",
             planName: "Free",
@@ -73,6 +74,7 @@ export const useUserPlan = () => {
           };
           localStorage.setItem("userPlan", JSON.stringify(defaultPlan));
           setUserPlan(defaultPlan);
+          console.log("✅ Không tìm thấy payment, set về Free plan");
         }
       } catch (error) {
         console.error("❌ Lỗi load user plan:", error);
@@ -84,6 +86,15 @@ export const useUserPlan = () => {
           } catch (err) {
             console.error("❌ Lỗi parse userPlan:", err);
           }
+        } else {
+          // Nếu API fail và không có localStorage, set default Free
+          const defaultPlan: UserPlan = {
+            planId: "1",
+            planName: "Free",
+            isPremium: false,
+            purchasedAt: new Date().toISOString(),
+          };
+          setUserPlan(defaultPlan);
         }
       } finally {
         setLoading(false);
