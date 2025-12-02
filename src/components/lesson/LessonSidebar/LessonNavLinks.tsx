@@ -10,6 +10,13 @@ import {
   ClipboardCheck,
 } from "lucide-react";
 
+interface LessonNavLink {
+  label: string;
+  icon: React.ReactElement;
+  href: string;
+  badge?: string;
+}
+
 interface LessonNavLinksProps {
   baseHref: string;
   lessonId: string;
@@ -21,7 +28,7 @@ export default function LessonNavLinks({
 }: LessonNavLinksProps) {
   const base = baseHref || `/lessons/${lessonId}`;
 
-  const links = [
+  const links: LessonNavLink[] = [
     {
       label: "Course",
       icon: <GraduationCap className="w-4 h-4" />,
