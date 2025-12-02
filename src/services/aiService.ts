@@ -35,10 +35,21 @@ export const aiService = {
 
   /** Get all quizzes for a lesson */
   getQuizzesByLesson: async (lessonId: string): Promise<Quiz[]> => {
-    const response = await apiService.privateApiClient.get<Quiz[]>(
-      `/lessons/${lessonId}/quizzes`
-    );
-    return wrapResponse(response);
+    try {
+      const response = await apiService.privateApiClient.get<Quiz[]>(
+        `/lessons/${lessonId}/quizzes`
+      );
+      return wrapResponse(response);
+    } catch (error: any) {
+      // 404 is expected if endpoint doesn't exist or no quizzes yet
+      if (error?.response?.status === 404) {
+        console.warn(`Quizzes endpoint not found for lesson ${lessonId}, returning empty array`);
+        return [];
+      }
+      console.error("Error loading quizzes:", error);
+      // Return empty array instead of throwing to prevent UI crashes
+      return [];
+    }
   },
 
   /** Get quiz by ID */

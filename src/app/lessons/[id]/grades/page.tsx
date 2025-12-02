@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import Navbar from "@/components/navbar/Navbar";
 import { ClipboardList, BookOpen, CheckCircle, XCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -12,11 +11,7 @@ export default function GradesPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#FFF9F3] via-white to-[#FFF4EA] dark:from-gray-950 dark:to-gray-900">
-      {/* 🧭 Navbar */}
-      <Navbar />
-
-      <main className="max-w-5xl mx-auto px-6 py-14 space-y-10">
+    <div className="space-y-10">
         {/* Header */}
         <header className="text-center space-y-3">
           <div className="flex justify-center">
@@ -79,7 +74,6 @@ export default function GradesPage() {
             </ul>
           </CardContent>
         </Card>
-      </main>
     </div>
   );
 }

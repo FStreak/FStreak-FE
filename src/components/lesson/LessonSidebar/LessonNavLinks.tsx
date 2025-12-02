@@ -32,37 +32,6 @@ export default function LessonNavLinks({
       icon: <ClipboardCheck className="w-4 h-4" />,
       href: `${base}/assignments`,
     },
-    {
-      label: "Grades",
-      icon: <Layers className="w-4 h-4" />,
-      href: `${base}/grades`,
-    },
-    {
-      label: "Notes",
-      icon: <BookOpen className="w-4 h-4" />,
-      href: `${base}/notes`,
-    },
-    {
-      label: "Discussion",
-      icon: <MessageCircle className="w-4 h-4" />,
-      href: `${base}/discussion`,
-    },
-    {
-      label: "Messages",
-      icon: <Mail className="w-4 h-4" />,
-      href: `${base}/messages`,
-      badge: "1",
-    },
-    {
-      label: "Resources",
-      icon: <Info className="w-4 h-4" />,
-      href: `${base}/resources`,
-    },
-    {
-      label: "Course Info",
-      icon: <Calendar className="w-4 h-4" />,
-      href: `${base}/course-info`,
-    },
   ];
 
   return (

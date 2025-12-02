@@ -6,9 +6,10 @@ import PlanCard, { Plan } from "./PlanCard";
 interface PlanListProps {
   plans: Plan[];
   onBuyNow: (plan: Plan) => void;
+  userPlan?: { planId: string; planName: string; isPremium: boolean } | null;
 }
 
-export default function PlanList({ plans, onBuyNow }: PlanListProps) {
+export default function PlanList({ plans, onBuyNow, userPlan }: PlanListProps) {
   return (
     <section className="relative py-8">
       <div className="flex justify-center">
@@ -26,7 +27,7 @@ export default function PlanList({ plans, onBuyNow }: PlanListProps) {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.1, duration: 0.3 }}
             >
-              <PlanCard plan={plan} onBuyNow={onBuyNow} />
+              <PlanCard plan={plan} onBuyNow={onBuyNow} userPlan={userPlan} />
             </motion.div>
           ))}
         </motion.div>

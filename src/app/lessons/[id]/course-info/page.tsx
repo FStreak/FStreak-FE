@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import Navbar from "@/components/navbar/Navbar";
 import { Star, CheckSquare, Clock, Globe, Award } from "lucide-react";
 import { useLesson } from "@/hooks/useLesson";
 import { privateApiService } from "@/services/ApiPrivate";
@@ -33,22 +32,20 @@ export default function CourseInfoPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#FFF9F3] via-[#FFFDFB] to-[#FFF7EC]">
-        <Navbar />
-        <main className="max-w-5xl mx-auto px-6 md:px-10 py-14">
-          <div className="text-center text-gray-600">Loading course info...</div>
-        </main>
+      <div className="space-y-6">
+        <div className="text-center text-gray-600 dark:text-gray-400 py-10">
+          Loading course info...
+        </div>
       </div>
     );
   }
 
   if (!lesson) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#FFF9F3] via-[#FFFDFB] to-[#FFF7EC]">
-        <Navbar />
-        <main className="max-w-5xl mx-auto px-6 md:px-10 py-14">
-          <div className="text-center text-gray-600">Lesson not found</div>
-        </main>
+      <div className="space-y-6">
+        <div className="text-center text-gray-600 dark:text-gray-400 py-10">
+          Lesson not found
+        </div>
       </div>
     );
   }
@@ -110,10 +107,7 @@ export default function CourseInfoPage() {
       };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#FFF9F3] via-[#FFFDFB] to-[#FFF7EC]">
-      <Navbar />
-
-      <main className="max-w-5xl mx-auto px-6 md:px-10 py-14 space-y-10">
+    <div className="space-y-10">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -180,7 +174,6 @@ export default function CourseInfoPage() {
             ))}
           </div>
         </div>
-      </main>
     </div>
   );
 }

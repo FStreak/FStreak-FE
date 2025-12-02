@@ -1,17 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
-import Navbar from "@/components/navbar/Navbar";
 import { Pencil, StickyNote } from "lucide-react";
 
 export default function NotesPage() {
   const [note, setNote] = useState("");
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#FFF9F3] via-[#FFFDFB] to-[#FFF7EC]">
-      <Navbar />
-
-      <main className="max-w-4xl mx-auto px-6 md:px-10 py-14 space-y-10">
+    <div className="space-y-10">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -65,7 +61,6 @@ export default function NotesPage() {
             </button>
           </div>
         </div>
-      </main>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
+import groundMascot from "@/premium mascot/ground mascot.png";
 
 export default function MascotInfo() {
   return (
@@ -31,11 +32,11 @@ export default function MascotInfo() {
         className="relative w-36 h-36 rounded-full border-4 border-orange-400 shadow-lg overflow-hidden bg-gradient-to-br from-yellow-100 to-orange-50 flex items-center justify-center"
       >
         <Image
-          src="/mascot-default.png"
+          src={groundMascot.src}
           alt="Mascot"
           width={144}
           height={144}
-          className="object-cover"
+          className="object-contain"
         />
         {/* 🔹 Glow effect */}
         <div className="absolute inset-0 bg-gradient-to-t from-orange-200/20 to-transparent" />
@@ -49,7 +50,7 @@ export default function MascotInfo() {
             <Sparkles className="w-5 h-5 text-yellow-400" />
           </h2>
           <span className="px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-orange-500 to-yellow-400 text-white shadow">
-            LV. 5
+            LV. 0
           </span>
         </div>
 
@@ -64,21 +65,13 @@ export default function MascotInfo() {
         <div className="mt-5 w-full h-3 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden relative">
           <motion.div
             className="h-full bg-gradient-to-r from-orange-500 via-yellow-400 to-orange-400 rounded-full"
-            style={{ width: "70%" }}
-            animate={{
-              backgroundPosition: ["0%", "100%"],
-            }}
-            transition={{
-              repeat: Infinity,
-              duration: 3,
-              ease: "linear",
-            }}
+            style={{ width: "0%" }}
           />
         </div>
 
         <div className="flex justify-between mt-2 text-sm text-gray-500 dark:text-gray-400">
           <span>Progress</span>
-          <span className="text-orange-500 font-semibold">70%</span>
+          <span className="text-orange-500 font-semibold">0%</span>
         </div>
       </div>
     </motion.div>

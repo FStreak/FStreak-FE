@@ -20,9 +20,10 @@ export interface Plan {
 interface PlanCardProps {
   plan: Plan;
   onBuyNow: (plan: Plan) => void;
+  userPlan?: { planId: string; planName: string; isPremium: boolean } | null;
 }
 
-export default function PlanCard({ plan, onBuyNow }: PlanCardProps) {
+export default function PlanCard({ plan, onBuyNow, userPlan }: PlanCardProps) {
   const recommended = plan.isRecommended;
 
   // ✅ Kiểm tra nếu plan là miễn phí
@@ -30,6 +31,13 @@ export default function PlanCard({ plan, onBuyNow }: PlanCardProps) {
     plan.price.trim() === "0₫" ||
     plan.price.trim() === "0" ||
     plan.price.toLowerCase().includes("free");
+
+  // ✅ Kiểm tra nếu user đã có plan này
+  const isCurrentPlan = userPlan?.planId === plan.id;
+  
+  // ✅ Kiểm tra nếu user đã có Premium và đang xem plan thấp hơn
+  const hasPremium = userPlan?.isPremium;
+  const isLowerPlan = hasPremium && (plan.id === "1" || plan.id === "3" || plan.id === "4");
 
   return (
     <Card
@@ -41,9 +49,16 @@ export default function PlanCard({ plan, onBuyNow }: PlanCardProps) {
         }`}
     >
       {/* 🏅 Recommended Badge */}
-      {recommended && (
+      {recommended && !isCurrentPlan && (
         <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-orange-500 to-yellow-400 text-white text-xs font-semibold py-2 rounded-t-3xl tracking-wide">
           ⭐ RECOMMENDED
+        </div>
+      )}
+      
+      {/* ✅ Current Plan Badge */}
+      {isCurrentPlan && (
+        <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-green-500 to-emerald-400 text-white text-xs font-semibold py-2 rounded-t-3xl tracking-wide">
+          ✓ CURRENT PLAN
         </div>
       )}
 
@@ -80,17 +95,21 @@ export default function PlanCard({ plan, onBuyNow }: PlanCardProps) {
 
         {/* CTA Button */}
         <Button
-          onClick={() => !isFree && onBuyNow(plan)}
-          disabled={isFree}
+          onClick={() => !isFree && !isCurrentPlan && !isLowerPlan && onBuyNow(plan)}
+          disabled={isFree || isCurrentPlan || isLowerPlan}
           className={`w-full font-semibold rounded-xl py-2.5 transition-all duration-300 ${
-            isFree
+            isFree || isCurrentPlan || isLowerPlan
               ? "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
               : recommended
               ? "bg-gradient-to-r from-orange-500 to-yellow-400 text-white hover:shadow-[0_0_20px_rgba(255,165,0,0.4)]"
               : "bg-gray-900 text-white hover:bg-gray-800"
           }`}
         >
-          {isFree
+          {isCurrentPlan
+            ? "Current Plan"
+            : isLowerPlan
+            ? "Downgrade Not Allowed"
+            : isFree
             ? "In Current Plan"
             : recommended
             ? "Upgrade Now"

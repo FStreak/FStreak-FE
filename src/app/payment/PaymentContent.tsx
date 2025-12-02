@@ -8,6 +8,7 @@ import PaymentInstructions from "./components/PaymentInstructions";
 import { Plan } from "@/components/plans/PlanCard";
 import paymentService from "@/services/paymentService";
 import { useRouter } from "next/navigation";
+import { useUserPlan } from "@/hooks/useUserPlan";
 
 interface CustomShopItems {
   mascot?: { id: string | number; name: string; img: string; price?: number } | null;
@@ -20,6 +21,7 @@ export default function PaymentContent() {
   const [customItems, setCustomItems] = useState<CustomShopItems | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const router = useRouter();
+  const { userPlan, loading: planLoading } = useUserPlan();
 
   // ✅ Lấy dữ liệu từ localStorage (plan hoặc custom shop items)
   useEffect(() => {
@@ -146,6 +148,22 @@ export default function PaymentContent() {
     <div className="min-h-screen bg-gradient-to-b from-[#FFF9F3] via-white to-[#FFF4EA] dark:from-gray-950 dark:to-gray-900">
       <Navbar />
       <div className="max-w-4xl mx-auto px-6 py-10 space-y-8 animate-fadeIn">
+        {/* Hiển thị plan hiện tại nếu đã có */}
+        {!planLoading && userPlan && userPlan.isPremium && (
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Plan hiện tại của bạn:</p>
+                <p className="text-lg font-bold text-green-600 dark:text-green-400">
+                  {userPlan.planName}
+                  <span className="ml-2 text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-2 py-1 rounded-full">
+                    Premium
+                  </span>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         {customItems ? (
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">

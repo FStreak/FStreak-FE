@@ -5,10 +5,12 @@ import PlanTabs from "@/components/plans/PlanTabs";
 import { useTokenInfoStorage } from "@/store/authStore";
 import { useRouter } from "next/navigation";
 import { Plan } from "@/components/plans/PlanCard";
+import { useUserPlan } from "@/hooks/useUserPlan";
 
 export default function PlansPage() {
   const router = useRouter();
   const { token } = useTokenInfoStorage();
+  const { userPlan, loading: planLoading } = useUserPlan();
 
   const handleBuyNow = (plan: Plan) => {
     if (!token) return router.push("/login");
@@ -92,8 +94,23 @@ export default function PlansPage() {
           </p>
         </div>
 
+        {/* Hiển thị plan hiện tại */}
+        {!planLoading && userPlan && userPlan.isPremium && (
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4 max-w-2xl mx-auto">
+            <div className="flex items-center justify-center gap-2">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Plan hiện tại của bạn:</p>
+              <p className="text-lg font-bold text-green-600 dark:text-green-400">
+                {userPlan.planName}
+                <span className="ml-2 text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-2 py-1 rounded-full">
+                  Premium
+                </span>
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* ✅ Tabs */}
-        <PlanTabs plans={plans} onBuyNow={handleBuyNow} />
+        <PlanTabs plans={plans} onBuyNow={handleBuyNow} userPlan={userPlan} />
       </main>
     </div>
   );

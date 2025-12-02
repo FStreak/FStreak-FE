@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import Navbar from "@/components/navbar/Navbar";
 import { MessageCircle, Mail, Clock } from "lucide-react";
 
 export default function MessagesPage() {
@@ -30,10 +29,7 @@ export default function MessagesPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#FFF9F3] via-[#FFFDFB] to-[#FFF7EC]">
-      <Navbar />
-
-      <main className="max-w-5xl mx-auto px-6 md:px-10 py-14 space-y-10">
+    <div className="space-y-10">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -95,7 +91,6 @@ export default function MessagesPage() {
             ))}
           </ul>
         </div>
-      </main>
     </div>
   );
 }

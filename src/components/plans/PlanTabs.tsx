@@ -12,9 +12,10 @@ type TabType = "individual" | "team" | "mascot";
 interface PlanTabsProps {
   plans: Plan[];
   onBuyNow: (plan: Plan) => void;
+  userPlan?: { planId: string; planName: string; isPremium: boolean } | null;
 }
 
-export default function PlanTabs({ plans, onBuyNow }: PlanTabsProps) {
+export default function PlanTabs({ plans, onBuyNow, userPlan }: PlanTabsProps) {
   const [tab, setTab] = useState<TabType>("individual");
   const hasMounted = useRef(false);
 
@@ -99,7 +100,7 @@ export default function PlanTabs({ plans, onBuyNow }: PlanTabsProps) {
         >
           <div className="flex justify-center">
             <div className="max-w-6xl w-full flex justify-center">
-              <PlanList plans={filteredPlans} onBuyNow={onBuyNow} />
+              <PlanList plans={filteredPlans} onBuyNow={onBuyNow} userPlan={userPlan} />
             </div>
           </div>
         </motion.div>

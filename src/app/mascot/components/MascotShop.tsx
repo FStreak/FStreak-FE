@@ -62,7 +62,7 @@ export default function MascotShop() {
       >
         <Coins className="w-4 h-4 text-yellow-500" />
         <span className="text-sm">Balance:</span>
-        <span className="font-semibold text-orange-500">120 Coins</span>
+        <span className="font-semibold text-orange-500">0 Coins</span>
       </div>
 
       {/* 🔗 Visit Shop Button */}

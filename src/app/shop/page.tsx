@@ -102,7 +102,7 @@ const premiumMascotItems = [
 ];
 
 export default function ShopPage() {
-  const [coins, setCoins] = useState(120);
+  const [coins, setCoins] = useState(0);
   const [selectedMascot, setSelectedMascot] = useState<{ id: string | number; name: string; img: string; price?: number } | null>(null);
   const [selectedFrame, setSelectedFrame] = useState<{ id: string | number; name: string; img: string; price?: number } | null>(null);
 

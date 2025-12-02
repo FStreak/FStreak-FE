@@ -77,8 +77,6 @@ export default function Navbar() {
             { href: "/lessons", icon: BookOpen, label: "Lessons" },
             { href: "/classrooms", icon: Users2, label: "Classrooms" },
             { href: "/friends", icon: UserPlus, label: "Friends" }, // 👥 Thêm tab friends
-            { href: "/messages", icon: MessageCircle, label: "Messages" }, // 💬 Thêm tab messages
-            { href: "/studyWall", icon: FileText, label: "StudyWall" },
             { href: "/leaderboard", icon: Trophy, label: "Leaderboard" }, // 🏆 Thêm tab leaderboard
             { href: "/mascot", icon: PawPrint, label: "Mascot" }, // 🐾 Thêm tab mới
             { href: "/plans", icon: CreditCard, label: "Plans" },

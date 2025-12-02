@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import Navbar from "@/components/navbar/Navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Loader2, BookOpen, CheckCircle, AlertCircle } from "lucide-react";
@@ -90,12 +89,9 @@ export default function AssignmentsPage() {
 
   if (lessonLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#FFF9F3] via-white to-[#FFF4EA] dark:from-gray-950 dark:to-gray-900">
-        <Navbar />
-        <div className="mx-auto max-w-7xl px-6 py-10">
-          <div className="text-center text-gray-600 dark:text-gray-400">
-            Loading lesson...
-          </div>
+      <div className="space-y-6">
+        <div className="text-center text-gray-600 dark:text-gray-400 py-10">
+          Loading lesson...
         </div>
       </div>
     );
@@ -103,21 +99,16 @@ export default function AssignmentsPage() {
 
   if (!lesson) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#FFF9F3] via-white to-[#FFF4EA] dark:from-gray-950 dark:to-gray-900">
-        <Navbar />
-        <div className="mx-auto max-w-7xl px-6 py-10">
-          <div className="text-center text-gray-600 dark:text-gray-400">
-            Lesson not found
-          </div>
+      <div className="space-y-6">
+        <div className="text-center text-gray-600 dark:text-gray-400 py-10">
+          Lesson not found
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#FFF9F3] via-white to-[#FFF4EA] dark:from-gray-950 dark:to-gray-900">
-      <Navbar />
-      <div className="mx-auto max-w-7xl px-6 py-10 space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

@@ -14,6 +14,7 @@ function PaymentSuccessContent() {
   const router = useRouter();
   const [status, setStatus] = useState<"loading" | "success" | "failed">("loading");
   const [paymentData, setPaymentData] = useState<any>(null);
+  const [planName, setPlanName] = useState<string>("Premium");
 
   useEffect(() => {
     const orderCode = searchParams.get("orderCode");
@@ -30,7 +31,32 @@ function PaymentSuccessContent() {
         console.log("✅ Kết quả thanh toán:", result);
         
         setPaymentData(result);
-        setStatus(result.status?.toLowerCase() === "paid" ? "success" : "failed");
+        const isPaid = result.status?.toLowerCase() === "paid";
+        setStatus(isPaid ? "success" : "failed");
+
+        // ✅ Nếu thanh toán thành công, cập nhật plan status
+        if (isPaid) {
+          const selectedPayment = localStorage.getItem("selectedPayment");
+          if (selectedPayment) {
+            try {
+              const payment = JSON.parse(selectedPayment);
+              // Nếu có plan, lưu plan status vào localStorage
+              if (payment.plan) {
+                const isPremium = payment.plan.id === "2" || payment.plan.id === "5"; // Premium hoặc Full Combo
+                setPlanName(payment.plan.title);
+                localStorage.setItem("userPlan", JSON.stringify({
+                  planId: payment.plan.id,
+                  planName: payment.plan.title,
+                  isPremium: isPremium,
+                  purchasedAt: new Date().toISOString(),
+                }));
+                console.log(`✅ Đã cập nhật plan thành ${payment.plan.title}`);
+              }
+            } catch (err) {
+              console.error("❌ Lỗi parse selectedPayment:", err);
+            }
+          }
+        }
       } catch (error) {
         console.error("❌ Lỗi kiểm tra thanh toán:", error);
         setStatus("failed");
@@ -83,7 +109,7 @@ function PaymentSuccessContent() {
             </div>
 
             <p className="text-center text-muted-foreground">
-              Tài khoản của bạn đã được nâng cấp lên Premium!
+              Tài khoản của bạn đã được nâng cấp lên {planName}!
             </p>
 
             <div className="flex gap-3">
