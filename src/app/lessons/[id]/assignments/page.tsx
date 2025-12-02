@@ -29,6 +29,11 @@ export default function AssignmentsPage() {
     QuestionType.SHORT_ANSWER,
   ]);
 
+  // Helper function to format question type
+  const formatQuestionType = (type: string): string => {
+    return type.replace("_", " ").replace(/\b\w/g, (l: string) => l.toUpperCase());
+  };
+
   // Load existing quizzes
   useEffect(() => {
     const loadQuizzes = async () => {
@@ -189,7 +194,7 @@ export default function AssignmentsPage() {
                         className="rounded border-orange-300"
                       />
                       <span className="text-sm text-gray-700 dark:text-gray-300">
-                        {type.replace("_", " ").replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                        {formatQuestionType(type)}
                       </span>
                     </label>
                   ))}
