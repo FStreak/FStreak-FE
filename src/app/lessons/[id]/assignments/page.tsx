@@ -339,7 +339,6 @@ export default function AssignmentsPage() {
             ))}
           </div>
         )}
-      </div>
     </div>
   );
 }
